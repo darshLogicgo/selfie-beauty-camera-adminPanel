@@ -12,8 +12,8 @@ export const getAiPhotoSubcategories = async (req, res) => {
     const lim = Number(limit);
     const skip = (pageNum - 1) * lim;
 
-    // Filter only subcategories that are in AI Photo
-    const filter = { isAiPhoto: true };
+    // Show all subcategories (we'll filter to only include those with images)
+    const filter = {};
 
     // Sort by aiPhotoOrder (ascending), then by createdAt
     const sort = { aiPhotoOrder: 1, createdAt: -1 };
@@ -27,20 +27,100 @@ export const getAiPhotoSubcategories = async (req, res) => {
       Subcategory.countDocuments(filter),
     ]);
 
-    const totalPages = Math.ceil(totalItems / lim);
+    console.log(`[AI Photo API] Total subcategories found: ${totalItems}`);
+    console.log(`[AI Photo API] Items fetched: ${items.length}`);
+    if (items.length > 0) {
+      console.log(`[AI Photo API] First item sample:`, {
+        _id: items[0]._id,
+        subcategoryTitle: items[0].subcategoryTitle,
+        img_sqr: items[0].img_sqr,
+        img_rec: items[0].img_rec,
+        asset_images: items[0].asset_images,
+      });
+    }
+
+    // Transform data to the desired format
+    // Collect all images from img_sqr, img_rec, video_sqr, video_rec, and asset_images
+    const formattedData = items
+      .map((item) => {
+        const photos = [];
+        let photoIndex = 0;
+
+        // Helper function to add image if valid (more lenient check)
+        const addImage = (imageUrl, fieldName) => {
+          // Check if imageUrl exists and is a non-empty string
+          if (imageUrl != null && imageUrl !== undefined) {
+            const urlString = String(imageUrl).trim();
+            // Accept if it's not empty and not just whitespace or quotes
+            if (urlString !== "" && urlString !== '""' && urlString !== "''" && urlString.length > 0) {
+              photos.push({
+                _id: `${item._id.toString()}${photoIndex}`,
+                image_url: urlString,
+              });
+              photoIndex++;
+              console.log(`[AI Photo API] Added image from ${fieldName} for ${item.subcategoryTitle}: ${urlString.substring(0, 50)}...`);
+            }
+          }
+        };
+
+        // Add img_sqr if it exists
+        if (item.img_sqr != null) addImage(item.img_sqr, 'img_sqr');
+
+        // Add img_rec if it exists
+        if (item.img_rec != null) addImage(item.img_rec, 'img_rec');
+
+        // Add video_sqr if it exists (treating videos as images for display)
+        if (item.video_sqr != null) addImage(item.video_sqr, 'video_sqr');
+
+        // Add video_rec if it exists (treating videos as images for display)
+        if (item.video_rec != null) addImage(item.video_rec, 'video_rec');
+
+        // Add all asset_images if they exist
+        if (item.asset_images && Array.isArray(item.asset_images)) {
+          item.asset_images.forEach((imageUrl, idx) => {
+            if (imageUrl != null && imageUrl !== undefined) {
+              const urlString = String(imageUrl).trim();
+              if (urlString !== "" && urlString !== '""' && urlString !== "''" && urlString.length > 0) {
+                photos.push({
+                  _id: `${item._id.toString()}${photoIndex}`,
+                  image_url: urlString,
+                });
+                photoIndex++;
+                console.log(`[AI Photo API] Added asset_image[${idx}] for ${item.subcategoryTitle}: ${urlString.substring(0, 50)}...`);
+              }
+            }
+          });
+        }
+
+        // Log detailed info if no photos found for debugging
+        if (photos.length === 0) {
+          console.log(`[AI Photo API] No images found for subcategory: ${item.subcategoryTitle}`, {
+            _id: item._id,
+            img_sqr: item.img_sqr,
+            img_sqr_type: typeof item.img_sqr,
+            img_rec: item.img_rec,
+            img_rec_type: typeof item.img_rec,
+            video_sqr: item.video_sqr,
+            video_rec: item.video_rec,
+            asset_images: item.asset_images,
+            asset_images_type: Array.isArray(item.asset_images) ? 'array' : typeof item.asset_images,
+            asset_images_length: Array.isArray(item.asset_images) ? item.asset_images.length : 'N/A',
+          });
+        }
+
+        // Return subcategory with photos (even if empty)
+        return {
+          subCategory: item.subcategoryTitle || "",
+          photos: photos,
+        };
+      });
 
     return apiResponse({
       res,
       status: true,
       statusCode: StatusCodes.OK,
-      message: "AI Photo subcategories fetched successfully",
-      data: items,
-      pagination: { 
-        page: pageNum, 
-        limit: lim,
-        total: totalItems,
-        totalPages 
-      },
+      message: "AI Photos fetched successfully",
+      data: formattedData,
     });
   } catch (error) {
     console.error("getAiPhotoSubcategories error:", error);
