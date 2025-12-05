@@ -9,13 +9,13 @@ export const apiResponse = ({
   pagination,
   ...options
 }) => {
-  const isBody = data ? data : null;
+  const responseData = data ? data : null;
   const status =
     statusCode || error?.statusCode || StatusCodes.INTERNAL_SERVER_ERROR;
   const msg = message || error?.message || getReasonPhrase(status);
   return res
     .status(status)
-    .json({ message: msg, error, pagination, body: isBody, ...options });
+    .json({ message: msg, error, pagination, data: responseData, ...options });
 };
 
 export const parseJoiError = (error) => {

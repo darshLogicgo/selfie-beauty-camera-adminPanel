@@ -27,7 +27,7 @@ app.use((req, res, next) => {
       return res.status(400).json({
         status: false,
         message: "Invalid JSON format in request body",
-        body: null,
+        data: null,
       });
     }
     next();

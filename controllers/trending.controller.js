@@ -12,39 +12,48 @@ import { StatusCodes } from "http-status-codes";
  */
 const getAllCategoriesForTrending = async (req, res) => {
   try {
-    // Get all non-deleted and active categories (status: true)
-    const allCategories = await categoryService
-      .find({ isDeleted: false, status: true })
-      .select({
-        name: 1,
-        img_sqr: 1,
-        img_rec: 1,
-        video_sqr: 1,
-        video_rec: 1,
-        status: 1,
-        order: 1,
-        isTrending: 1,
-        trendingOrder: 1,
-        createdAt: 1,
-        updatedAt: 1,
-      })
-      .lean();
+    const { page = 1, limit = 10 } = req.query;
+    const skip = (Number(page) - 1) * Number(limit);
+    const limitNum = Number(limit) > 0 ? Number(limit) : 50;
 
-    // Sort all categories by trendingOrder (regardless of isTrending status)
-    const sortedCategories = allCategories.sort((a, b) => {
-      // Sort by trendingOrder first, then by createdAt
-      if (a.trendingOrder !== b.trendingOrder) {
-        return a.trendingOrder - b.trendingOrder;
-      }
-      return new Date(a.createdAt) - new Date(b.createdAt);
-    });
+    // Parallel queries for faster response (optimized with index hints)
+    const [categories, total] = await Promise.all([
+      categoryService
+        .find({ isDeleted: false, status: true })
+        .select({
+          name: 1,
+          img_sqr: 1,
+          img_rec: 1,
+          video_sqr: 1,
+          video_rec: 1,
+          status: 1,
+          order: 1,
+          isTrending: 1,
+          trendingOrder: 1,
+          createdAt: 1,
+          updatedAt: 1,
+        })
+        .sort({ trendingOrder: 1, createdAt: 1 }) // Primary: trendingOrder (ascending), Secondary: createdAt for consistency
+        .skip(skip)
+        .limit(limitNum)
+        .lean(),
+      categoryService.countDocuments({ isDeleted: false, status: true }),
+    ]);
+
+    const totalPages = Math.ceil(total / limitNum);
 
     return apiResponse({
       res,
       statusCode: StatusCodes.OK,
       status: true,
       message: "Categories fetched successfully for trending selection",
-      data: sortedCategories,
+      data: categories,
+      pagination: {
+        page: Number(page),
+        limit: limitNum,
+        total,
+        totalPages,
+      },
     });
   } catch (error) {
     console.error("Get All Categories For Trending Error:", error);
@@ -62,12 +71,49 @@ const getAllCategoriesForTrending = async (req, res) => {
 /**
  * Get trending categories (Client side)
  * Returns only active categories that are marked as trending, sorted by trendingOrder
- * @route GET /api/v1/categories/trending
- * @access Private
+ * @route GET /api/v1/categories/trending/list
+ * @access Public
  */
 const getTrendingCategories = async (req, res) => {
   try {
-    const trendingCategories = await categoryService.getTrendingCategories();
+    const { page = 1, limit = 10 } = req.query;
+    const skip = (Number(page) - 1) * Number(limit);
+    const limitNum = Number(limit) > 0 ? Number(limit) : 50;
+
+    // Parallel queries for faster response (optimized with index hints)
+    const [trendingCategories, total] = await Promise.all([
+      categoryService
+        .find({
+          isDeleted: false,
+          status: true,
+          isTrending: true,
+        })
+        .select({
+          name: 1,
+          img_sqr: 1,
+          img_rec: 1,
+          video_sqr: 1,
+          video_rec: 1,
+          status: 1,
+          order: 1,
+          isTrending: 1,
+          trendingOrder: 1,
+          createdAt: 1,
+          updatedAt: 1,
+        })
+        .sort({ trendingOrder: 1, createdAt: 1 })
+        .skip(skip)
+        .limit(limitNum)
+        .lean()
+        .hint({ isDeleted: 1, status: 1, isTrending: 1, trendingOrder: 1 }),
+      categoryService.countDocuments({
+        isDeleted: false,
+        status: true,
+        isTrending: true,
+      }),
+    ]);
+
+    const totalPages = Math.ceil(total / limitNum);
 
     return apiResponse({
       res,
@@ -75,6 +121,12 @@ const getTrendingCategories = async (req, res) => {
       status: true,
       message: "Trending categories fetched successfully",
       data: trendingCategories,
+      pagination: {
+        page: Number(page),
+        limit: limitNum,
+        total,
+        totalPages,
+      },
     });
   } catch (error) {
     console.error("Get Trending Categories Error:", error);

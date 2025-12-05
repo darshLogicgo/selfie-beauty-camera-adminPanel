@@ -12,39 +12,48 @@ import { StatusCodes } from "http-status-codes";
  */
 const getAllCategoriesForAiWorld = async (req, res) => {
   try {
-    // Get all non-deleted and active categories (status: true)
-    const allCategories = await categoryService
-      .find({ isDeleted: false, status: true })
-      .select({
-        name: 1,
-        img_sqr: 1,
-        img_rec: 1,
-        video_sqr: 1,
-        video_rec: 1,
-        status: 1,
-        order: 1,
-        isAiWorld: 1,
-        aiWorldOrder: 1,
-        createdAt: 1,
-        updatedAt: 1,
-      })
-      .lean();
+    const { page = 1, limit = 10 } = req.query;
+    const skip = (Number(page) - 1) * Number(limit);
+    const limitNum = Number(limit) > 0 ? Number(limit) : 50;
 
-    // Sort all categories by aiWorldOrder (regardless of isAiWorld status)
-    const sortedCategories = allCategories.sort((a, b) => {
-      // Sort by aiWorldOrder first, then by createdAt
-      if (a.aiWorldOrder !== b.aiWorldOrder) {
-        return a.aiWorldOrder - b.aiWorldOrder;
-      }
-      return new Date(a.createdAt) - new Date(b.createdAt);
-    });
+    // Parallel queries for faster response (optimized with index hints)
+    const [categories, total] = await Promise.all([
+      categoryService
+        .find({ isDeleted: false, status: true })
+        .select({
+          name: 1,
+          img_sqr: 1,
+          img_rec: 1,
+          video_sqr: 1,
+          video_rec: 1,
+          status: 1,
+          order: 1,
+          isAiWorld: 1,
+          aiWorldOrder: 1,
+          createdAt: 1,
+          updatedAt: 1,
+        })
+        .sort({ aiWorldOrder: 1, createdAt: 1 }) // Primary: aiWorldOrder (ascending), Secondary: createdAt for consistency
+        .skip(skip)
+        .limit(limitNum)
+        .lean(),
+      categoryService.countDocuments({ isDeleted: false, status: true }),
+    ]);
+
+    const totalPages = Math.ceil(total / limitNum);
 
     return apiResponse({
       res,
       statusCode: StatusCodes.OK,
       status: true,
       message: "Categories fetched successfully for AI World selection",
-      data: sortedCategories,
+      data: categories,
+      pagination: {
+        page: Number(page),
+        limit: limitNum,
+        total,
+        totalPages,
+      },
     });
   } catch (error) {
     console.error("Get All Categories For AI World Error:", error);
@@ -62,12 +71,49 @@ const getAllCategoriesForAiWorld = async (req, res) => {
 /**
  * Get AI World categories (Client side)
  * Returns only active categories that are marked as AI World, sorted by aiWorldOrder
- * @route GET /api/v1/categories/ai-world
- * @access Private
+ * @route GET /api/v1/categories/ai-world/list
+ * @access Public
  */
 const getAiWorldCategories = async (req, res) => {
   try {
-    const aiWorldCategories = await categoryService.getAiWorldCategories();
+    const { page = 1, limit = 10 } = req.query;
+    const skip = (Number(page) - 1) * Number(limit);
+    const limitNum = Number(limit) > 0 ? Number(limit) : 50;
+
+    // Parallel queries for faster response (optimized with index hints)
+    const [aiWorldCategories, total] = await Promise.all([
+      categoryService
+        .find({
+          isDeleted: false,
+          status: true,
+          isAiWorld: true,
+        })
+        .select({
+          name: 1,
+          img_sqr: 1,
+          img_rec: 1,
+          video_sqr: 1,
+          video_rec: 1,
+          status: 1,
+          order: 1,
+          isAiWorld: 1,
+          aiWorldOrder: 1,
+          createdAt: 1,
+          updatedAt: 1,
+        })
+        .sort({ aiWorldOrder: 1, createdAt: 1 })
+        .skip(skip)
+        .limit(limitNum)
+        .lean()
+        .hint({ isDeleted: 1, status: 1, isAiWorld: 1, aiWorldOrder: 1 }),
+      categoryService.countDocuments({
+        isDeleted: false,
+        status: true,
+        isAiWorld: true,
+      }),
+    ]);
+
+    const totalPages = Math.ceil(total / limitNum);
 
     return apiResponse({
       res,
@@ -75,6 +121,12 @@ const getAiWorldCategories = async (req, res) => {
       status: true,
       message: "AI World categories fetched successfully",
       data: aiWorldCategories,
+      pagination: {
+        page: Number(page),
+        limit: limitNum,
+        total,
+        totalPages,
+      },
     });
   } catch (error) {
     console.error("Get AI World Categories Error:", error);
