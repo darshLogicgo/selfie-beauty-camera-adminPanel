@@ -25,6 +25,12 @@ app.use(cors({ origin: "*" }));
 app.use("/api/v1/auth", router.authRoute);
 app.use("/api/v1/user", router.userRoute);
 
+// Subcategory Routes
+app.use("/api/subcategory", router.subCategory);
+
+// AI Photo Routes
+app.use("/api/aiphoto", router.aiPhotoRoute);
+
 // Initialize Socket.IO
 initializeSocket(server);
 

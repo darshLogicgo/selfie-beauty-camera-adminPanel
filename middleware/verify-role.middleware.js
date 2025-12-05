@@ -6,7 +6,7 @@ import { StatusCodes } from "http-status-codes";
  */
 export const checkPermission = (allowedRoles) => {
   return (req, res, next) => {
-    const userRole = req.user.role;
+    const userRole = req.user?.role;
     if (allowedRoles.includes(userRole)) {
       next();
     } else {

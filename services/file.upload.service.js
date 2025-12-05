@@ -39,10 +39,18 @@ const s3Client = new S3({
 
 // Upload File
 const uploadFile = async ({ mimetype, buffer, folder = "" , ACL = "public-read" }) => {
-  const prefix = `${config.cloud.digitalocean.rootDirname}/${folder}`;
+  // normalize root dirname and folder (remove leading/trailing slashes)
+  const root = (config.cloud.digitalocean.rootDirname || "").replace(/^\/+|\/+$/g, "");
+  const folderPart = folder ? String(folder).replace(/^\/+|\/+$/g, "") : "";
+
+  // build prefix safely (avoid duplicate or leading slashes)
+  const prefix = root && folderPart ? `${root}/${folderPart}` : root || folderPart;
+
   const uuid = uuidv4();
   const extension = mime.extension(mimetype);
-  const fileKey = `${prefix}/${uuid}.${extension}`;
+
+  // fileKey should never start with a slash
+  const fileKey = prefix ? `${prefix}/${uuid}.${extension}` : `${uuid}.${extension}`;
 
   await s3Client.send(
     new PutObjectCommand({
@@ -53,7 +61,10 @@ const uploadFile = async ({ mimetype, buffer, folder = "" , ACL = "public-read" 
     })
   );
 
-  return `${config.cloud.digitalocean.baseUrl}/${fileKey}`;
+  // ensure baseUrl has no trailing slash before joining
+  const base = (config.cloud.digitalocean.baseUrl || "").replace(/\/+$/g, "");
+
+  return `${base}/${fileKey}`;
 };
 
 
