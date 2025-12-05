@@ -18,13 +18,29 @@ connectDB();
 
 // middleware
 app.use(morgan("dev"));
-app.use(express.json());
 app.use(cors({ origin: "*" }));
 
-// Users Routes
+// JSON parsing with error handling wrapper
+app.use((req, res, next) => {
+  express.json({ limit: "10mb" })(req, res, (err) => {
+    if (err) {
+      return res.status(400).json({
+        status: false,
+        message: "Invalid JSON format in request body",
+        body: null,
+      });
+    }
+    next();
+  });
+});
+app.use(express.urlencoded({ extended: true, limit: "10mb" }));
+
+// Routes
 app.use("/api/v1/auth", router.authRoute);
 app.use("/api/v1/user", router.userRoute);
-
+app.use("/api/v1/categories", router.categoryRoute);
+app.use("/api/v1/trending", router.trendingRoute);
+app.use("/api/v1/ai-world", router.aiWorldRoute);
 // Initialize Socket.IO
 initializeSocket(server);
 
