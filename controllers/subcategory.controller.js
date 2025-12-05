@@ -89,22 +89,112 @@ export const createSubcategory = async (req, res) => {
     const subcategory = new Subcategory(subcategoryData);
 
     // Always compute order if not explicitly provided in request
-    if (typeof finalPayload.order !== "number") {
-      // Find the maximum order for this category
-      const maxOrderDoc = await Subcategory.findOne({
-        categoryId: finalPayload.categoryId,
-        order: { $exists: true, $ne: null, $gte: 1 },
-      })
-        .sort({ order: -1 })
-        .select("order")
-        .lean();
+    // Check if order is a valid number (not string, not null, not undefined)
+    const providedOrder = finalPayload.order;
+    const isValidOrder = typeof providedOrder === "number" && !isNaN(providedOrder) && providedOrder >= 1;
+    
+    if (!isValidOrder) {
+      try {
+        // GLOBAL ORDER: Find max order across ALL subcategories (not per category)
+        const [aggResult] = await Subcategory.aggregate([
+          {
+            $group: {
+              _id: null,
+              totalCount: { $sum: 1 },
+              maxOrder: { $max: "$order" }
+            }
+          }
+        ]);
 
-      // Next order = max + 1, or 1 if no items exist
-      const nextOrder = maxOrderDoc && maxOrderDoc.order ? maxOrderDoc.order + 1 : 1;
-      subcategory.order = nextOrder;
+        const totalCount = aggResult?.totalCount || 0;
+        const maxOrder = aggResult?.maxOrder || null;
+
+        // Calculate next order (global sequential: 1, 2, 3, 4...)
+        let nextOrder = 1;
+        if (maxOrder !== null && typeof maxOrder === "number" && maxOrder >= 1) {
+          // Use max order + 1 if valid order exists
+          nextOrder = maxOrder + 1;
+        } else {
+          // If no valid order exists, use total count + 1
+          nextOrder = totalCount > 0 ? totalCount + 1 : 1;
+        }
+
+        subcategory.order = nextOrder;
+
+        console.log(`[Order Calculation - GLOBAL] Max Order: ${maxOrder || 'none'}, Total Count: ${totalCount}, New Order: ${nextOrder}`);
+      } catch (err) {
+        console.error("Error computing order:", err);
+        // Fallback: count ALL existing subcategories and add 1
+        try {
+          const count = await Subcategory.countDocuments({});
+          subcategory.order = count + 1;
+          console.log(`[Order Fallback - GLOBAL] Count: ${count}, New Order: ${count + 1}`);
+        } catch (countErr) {
+          console.error("Error in fallback order calculation:", countErr);
+          subcategory.order = 1;
+        }
+      }
     } else {
       // Use the order provided in request
       subcategory.order = finalPayload.order;
+    }
+
+    // Handle isAiPhoto if provided
+    if (typeof finalPayload.isAiPhoto === "boolean") {
+      subcategory.isAiPhoto = finalPayload.isAiPhoto;
+    } else {
+      subcategory.isAiPhoto = false;
+    }
+
+    // ALWAYS calculate aiPhotoOrder for ALL subcategories (regardless of isAiPhoto)
+    const providedAiPhotoOrder = finalPayload.aiPhotoOrder;
+    const isValidAiPhotoOrder = typeof providedAiPhotoOrder === "number" && !isNaN(providedAiPhotoOrder) && providedAiPhotoOrder >= 1;
+    
+    // Only calculate if not explicitly provided
+    if (!isValidAiPhotoOrder) {
+      try {
+        // Use aggregation to get both count and max aiPhotoOrder from ALL subcategories
+        const [aggResult] = await Subcategory.aggregate([
+          {
+            $group: {
+              _id: null,
+              totalCount: { $sum: 1 },
+              maxOrder: { $max: "$aiPhotoOrder" }
+            }
+          }
+        ]);
+
+        const totalCount = aggResult?.totalCount || 0;
+        const maxOrder = aggResult?.maxOrder || null;
+
+        // Calculate next aiPhotoOrder (sequential: 1, 2, 3, 4...)
+        let nextAiPhotoOrder = 1;
+        if (maxOrder !== null && typeof maxOrder === "number" && maxOrder >= 1) {
+          // Use max order + 1 if valid order exists
+          nextAiPhotoOrder = maxOrder + 1;
+        } else {
+          // If no valid order exists, use total count + 1
+          nextAiPhotoOrder = totalCount > 0 ? totalCount + 1 : 1;
+        }
+
+        subcategory.aiPhotoOrder = nextAiPhotoOrder;
+        console.log(`[AI Photo Order Calculation - CREATE] Max Order: ${maxOrder || 'none'}, Total Count: ${totalCount}, New Order: ${nextAiPhotoOrder}`);
+      } catch (err) {
+        console.error("Error computing aiPhotoOrder:", err);
+        // Fallback: count ALL existing subcategories and add 1
+        try {
+          const count = await Subcategory.countDocuments({});
+          subcategory.aiPhotoOrder = count + 1;
+          console.log(`[AI Photo Order Fallback - CREATE] Count: ${count}, New Order: ${count + 1}`);
+        } catch (countErr) {
+          console.error("Error in fallback aiPhotoOrder calculation:", countErr);
+          subcategory.aiPhotoOrder = 1;
+        }
+      }
+    } else {
+      // Use the aiPhotoOrder provided in request (user explicitly set it)
+      subcategory.aiPhotoOrder = providedAiPhotoOrder;
+      console.log(`[AI Photo Order - CREATE] Using provided order: ${providedAiPhotoOrder}`);
     }
 
     await subcategory.save();
@@ -164,16 +254,38 @@ export const getAllSubcategories = async (req, res) => {
     const skip = (pageNum - 1) * lim;
 
     // Sort by order in ascending order (1, 2, 3, 4...)
-    const sort = { order: 1, createdAt: -1 };
+    // Items with valid order (>= 1) come first, then items without order
+    // Use aggregation to handle null orders properly
+    const pipeline = [
+      { $match: filter },
+      {
+        $addFields: {
+          // Add a field to help sort: 0 for items with order >= 1, 1 for null/0/undefined
+          orderSort: {
+            $cond: [
+              { $and: [{ $ne: ["$order", null] }, { $gte: ["$order", 1] }] },
+              0, // Valid order
+              1  // Invalid/null order
+            ]
+          }
+        }
+      },
+      { $sort: { orderSort: 1, order: 1, createdAt: -1 } },
+      {
+        $facet: {
+          items: [
+            { $skip: skip }, 
+            { $limit: lim }, 
+            { $project: { orderSort: 0 } } // Remove temporary sort field
+          ],
+          total: [{ $count: "count" }]
+        }
+      }
+    ];
 
-    const [items, totalItems] = await Promise.all([
-      Subcategory.find(filter)
-        .sort(sort)
-        .skip(skip)
-        .limit(lim)
-        .lean(),
-      Subcategory.countDocuments(filter),
-    ]);
+    const [result] = await Subcategory.aggregate(pipeline);
+    const items = result.items || [];
+    const totalItems = result.total[0]?.count || 0;
 
     const totalPages = Math.ceil(totalItems / lim);
 
@@ -283,6 +395,67 @@ export const updateSubcategory = async (req, res) => {
       }
     }
 
+    // Handle isAiPhoto if provided
+    if (typeof finalPayload.isAiPhoto === "boolean") {
+      // isAiPhoto will be updated via finalPayload
+    }
+
+    // ALWAYS calculate aiPhotoOrder for ALL subcategories (regardless of isAiPhoto)
+    // Only calculate if not explicitly provided in request
+    const providedAiPhotoOrder = finalPayload.aiPhotoOrder;
+    const isValidAiPhotoOrder = typeof providedAiPhotoOrder === "number" && !isNaN(providedAiPhotoOrder) && providedAiPhotoOrder >= 1;
+    
+    if (!isValidAiPhotoOrder) {
+      // Only update if current value is 0/null or doesn't exist
+      if (!existing.aiPhotoOrder || existing.aiPhotoOrder < 1) {
+        try {
+          // Use aggregation to get both count and max aiPhotoOrder from ALL subcategories
+          const [aggResult] = await Subcategory.aggregate([
+            { $match: { _id: { $ne: existing._id } } }, // Exclude current item
+            {
+              $group: {
+                _id: null,
+                totalCount: { $sum: 1 },
+                maxOrder: { $max: "$aiPhotoOrder" }
+              }
+            }
+          ]);
+
+          const totalCount = aggResult?.totalCount || 0;
+          const maxOrder = aggResult?.maxOrder || null;
+
+          // Calculate next aiPhotoOrder (sequential: 1, 2, 3, 4...)
+          let nextAiPhotoOrder = 1;
+          if (maxOrder !== null && typeof maxOrder === "number" && maxOrder >= 1) {
+            // Use max order + 1 if valid order exists
+            nextAiPhotoOrder = maxOrder + 1;
+          } else {
+            // If no valid order exists, use total count + 1
+            nextAiPhotoOrder = totalCount > 0 ? totalCount + 1 : 1;
+          }
+
+          finalPayload.aiPhotoOrder = nextAiPhotoOrder;
+          console.log(`[AI Photo Order Calculation - UPDATE] Max Order: ${maxOrder || 'none'}, Total Count: ${totalCount}, New Order: ${nextAiPhotoOrder}`);
+        } catch (err) {
+          console.error("Error computing aiPhotoOrder in update:", err);
+          // Fallback: count ALL existing subcategories (excluding current)
+          try {
+            const count = await Subcategory.countDocuments({ _id: { $ne: id } });
+            finalPayload.aiPhotoOrder = count + 1;
+            console.log(`[AI Photo Order Fallback - UPDATE] Count: ${count}, New Order: ${count + 1}`);
+          } catch (countErr) {
+            console.error("Error in fallback aiPhotoOrder calculation:", countErr);
+            finalPayload.aiPhotoOrder = 1;
+          }
+        }
+      }
+      // If existing order is valid (>= 1), keep it
+    } else {
+      // Use the aiPhotoOrder provided in request
+      finalPayload.aiPhotoOrder = providedAiPhotoOrder;
+      console.log(`[AI Photo Order - UPDATE] Using provided order: ${providedAiPhotoOrder}`);
+    }
+
     // Build update object
     const updateObj = { $set: finalPayload };
     
@@ -382,18 +555,17 @@ export const deleteSubcategory = async (req, res) => {
       }
     }
 
-    const categoryId = item.categoryId;
     await item.deleteOne();
 
-    // Auto-reorder: fetch all remaining items for this category, sort by current order, reassign 1, 2, 3...
+    // Auto-reorder: fetch ALL remaining items globally, sort by current order, reassign 1, 2, 3...
     try {
-      // Get all remaining items, sort by order (ascending: 1, 2, 3...)
-      const remaining = await Subcategory.find({ categoryId })
+      // Get ALL remaining items globally, sort by order (ascending: 1, 2, 3...)
+      const remaining = await Subcategory.find({})
         .sort({ order: 1, createdAt: 1 })
         .select("_id order")
         .lean();
 
-      // Reassign orders starting from 1
+      // Reassign orders starting from 1 (global sequential ordering)
       for (let i = 0; i < remaining.length; i++) {
         await Subcategory.findByIdAndUpdate(remaining[i]._id, { order: i + 1 });
       }

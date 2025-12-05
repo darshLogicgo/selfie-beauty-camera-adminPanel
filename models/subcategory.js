@@ -19,9 +19,9 @@ video_rec: { type: String, default: "", trim: true },
     status: { type: Boolean, default: true },
     order: { type: Number },
     asset_images: { type: [String], default: [] }, // Array of additional image URLs
-    // AI World section fields
-    isAiWorld: { type: Boolean, default: false }, // Whether category is in AI World section
-    aiWorldOrder: { type: Number, default: 0 }, // Order in AI World section (starts from 1)
+    // AI Photo section fields
+    isAiPhoto: { type: Boolean, default: false }, // Whether category is in AI Photo section
+    aiPhotoOrder: { type: Number, default: 0 }, // Order in AI Photo section (starts from 1)
     // you can add createdBy/updatedBy if needed
   },
   { timestamps: true }

@@ -3,7 +3,7 @@ import Subcategory from "../models/Subcategory.js";
 import { apiResponse } from "../helper/api-response.helper.js";
 import mongoose from "mongoose";
 
-// Get AI Photo subcategories (Client side - sorted by aiWorldOrder)
+// Get AI Photo subcategories (Client side - sorted by aiPhotoOrder)
 export const getAiPhotoSubcategories = async (req, res) => {
   try {
     const { page = 1, limit = 100 } = req.query;
@@ -13,10 +13,10 @@ export const getAiPhotoSubcategories = async (req, res) => {
     const skip = (pageNum - 1) * lim;
 
     // Filter only subcategories that are in AI Photo
-    const filter = { isAiWorld: true };
+    const filter = { isAiPhoto: true };
 
-    // Sort by aiWorldOrder (ascending), then by createdAt
-    const sort = { aiWorldOrder: 1, createdAt: -1 };
+    // Sort by aiPhotoOrder (ascending), then by createdAt
+    const sort = { aiPhotoOrder: 1, createdAt: -1 };
 
     const [items, totalItems] = await Promise.all([
       Subcategory.find(filter)
@@ -57,7 +57,7 @@ export const getAiPhotoSubcategories = async (req, res) => {
 export const toggleSubcategoryAiPhoto = async (req, res) => {
   try {
     const { id } = req.params;
-    const { isAiWorld } = req.body;
+    const { isAiPhoto } = req.body;
 
     if (!mongoose.Types.ObjectId.isValid(id)) {
       return apiResponse({
@@ -68,12 +68,12 @@ export const toggleSubcategoryAiPhoto = async (req, res) => {
       });
     }
 
-    if (typeof isAiWorld !== "boolean") {
+    if (typeof isAiPhoto !== "boolean") {
       return apiResponse({
         res,
         status: false,
         statusCode: StatusCodes.BAD_REQUEST,
-        message: "isAiWorld must be a boolean value",
+        message: "isAiPhoto must be a boolean value",
       });
     }
 
@@ -87,40 +87,57 @@ export const toggleSubcategoryAiPhoto = async (req, res) => {
       });
     }
 
-    let updateData = { isAiWorld };
+    let updateData = { isAiPhoto };
 
     // If adding to AI Photo, assign order
-    if (isAiWorld) {
-      // Find max aiWorldOrder
-      const maxDoc = await Subcategory.findOne({
-        isAiWorld: true,
-        aiWorldOrder: { $exists: true, $ne: null, $gte: 1 },
-      })
-        .sort({ aiWorldOrder: -1 })
-        .select("aiWorldOrder")
-        .lean();
+    if (isAiPhoto) {
+      // Use aggregation to get both count and max order in one query
+      // Exclude current item from calculation
+      const [aggResult] = await Subcategory.aggregate([
+        { $match: { isAiPhoto: true, _id: { $ne: subcategory._id } } },
+        {
+          $group: {
+            _id: null,
+            totalCount: { $sum: 1 },
+            maxOrder: { $max: "$aiPhotoOrder" }
+          }
+        }
+      ]);
 
-      // Next order = max + 1, or 1 if no items exist
-      const nextOrder = maxDoc && maxDoc.aiWorldOrder ? maxDoc.aiWorldOrder + 1 : 1;
-      updateData.aiWorldOrder = nextOrder;
+      const totalCount = aggResult?.totalCount || 0;
+      const maxOrder = aggResult?.maxOrder || null;
+
+      // Calculate next order (sequential: 1, 2, 3, 4...)
+      // Always assign new order when toggling to true to ensure sequential ordering
+      let nextOrder = 1;
+      if (maxOrder !== null && typeof maxOrder === "number" && maxOrder >= 1) {
+        // Use max order + 1 if valid order exists
+        nextOrder = maxOrder + 1;
+      } else {
+        // If no valid order exists, use total count + 1
+        nextOrder = totalCount > 0 ? totalCount + 1 : 1;
+      }
+
+      updateData.aiPhotoOrder = nextOrder;
+      console.log(`[AI Photo Order Calculation] Max Order: ${maxOrder || 'none'}, Total Count: ${totalCount}, New Order: ${nextOrder}`);
     } else {
       // If removing from AI Photo, reset order to 0
-      updateData.aiWorldOrder = 0;
+      updateData.aiPhotoOrder = 0;
 
       // Reorder remaining items
       try {
         const remaining = await Subcategory.find({
-          isAiWorld: true,
+          isAiPhoto: true,
           _id: { $ne: id },
         })
-          .sort({ aiWorldOrder: 1, createdAt: 1 })
-          .select("_id aiWorldOrder")
+          .sort({ aiPhotoOrder: 1, createdAt: 1 })
+          .select("_id aiPhotoOrder")
           .lean();
 
         // Reassign orders starting from 1
         for (let i = 0; i < remaining.length; i++) {
           await Subcategory.findByIdAndUpdate(remaining[i]._id, {
-            aiWorldOrder: i + 1,
+            aiPhotoOrder: i + 1,
           });
         }
       } catch (err) {
@@ -136,7 +153,7 @@ export const toggleSubcategoryAiPhoto = async (req, res) => {
       res,
       status: true,
       statusCode: StatusCodes.OK,
-      message: isAiWorld
+      message: isAiPhoto
         ? "Subcategory added to AI Photo successfully"
         : "Subcategory removed from AI Photo successfully",
       data: updated,
@@ -168,20 +185,20 @@ export const reorderAiPhotoSubcategories = async (req, res) => {
 
     const ops = payload
       .map((p) => {
-        if (!p.id || typeof p.aiWorldOrder === "undefined") return null;
+        if (!p.id || typeof p.aiPhotoOrder === "undefined") return null;
 
         if (!mongoose.Types.ObjectId.isValid(p.id)) return null;
 
         // Ensure order is at least 1
-        const order = Math.max(1, Number(p.aiWorldOrder));
+        const order = Math.max(1, Number(p.aiPhotoOrder));
 
         return {
           updateOne: {
             filter: { _id: new mongoose.Types.ObjectId(p.id) },
             update: {
               $set: {
-                aiWorldOrder: order,
-                isAiWorld: true, // Ensure it's marked as AI Photo
+                aiPhotoOrder: order,
+                isAiPhoto: true, // Ensure it's marked as AI Photo
               },
             },
           },

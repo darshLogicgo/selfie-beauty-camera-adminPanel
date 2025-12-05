@@ -8,9 +8,9 @@ export const toggleAiPhotoValidation = {
     }),
   }),
   body: Joi.object({
-    isAiWorld: Joi.boolean().required().messages({
-      "any.required": "isAiWorld is required",
-      "boolean.base": "isAiWorld must be a boolean",
+    isAiPhoto: Joi.boolean().required().messages({
+      "any.required": "isAiPhoto is required",
+      "boolean.base": "isAiPhoto must be a boolean",
     }),
   }),
 };
@@ -23,11 +23,11 @@ export const reorderAiPhotoSubcategoriesValidation = {
         id: Joi.string().required().messages({
           "any.required": "ID is required",
         }),
-        aiWorldOrder: Joi.number().integer().min(1).required().messages({
-          "any.required": "aiWorldOrder is required",
-          "number.base": "aiWorldOrder must be a number",
-          "number.integer": "aiWorldOrder must be an integer",
-          "number.min": "aiWorldOrder must be at least 1",
+        aiPhotoOrder: Joi.number().integer().min(1).required().messages({
+          "any.required": "aiPhotoOrder is required",
+          "number.base": "aiPhotoOrder must be a number",
+          "number.integer": "aiPhotoOrder must be an integer",
+          "number.min": "aiPhotoOrder must be at least 1",
         }),
       })
     )

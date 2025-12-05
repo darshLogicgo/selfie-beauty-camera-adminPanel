@@ -18,7 +18,7 @@ router.get(
 
 /**
  * GET /api/aiphoto/list
- * Get AI Photo subcategories (Client side - sorted by aiWorldOrder)
+ * Get AI Photo subcategories (Client side - sorted by aiPhotoOrder)
  */
 router.get("/list", aiPhotoController.getAiPhotoSubcategories);
 
