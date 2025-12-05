@@ -206,6 +206,8 @@ const getTrendingCategories = async () => {
       order: 1,
       isTrending: 1,
       trendingOrder: 1,
+      createdAt: 1,
+      updatedAt: 1,
     })
     .sort({ trendingOrder: 1, createdAt: 1 })
     .lean()
@@ -259,6 +261,8 @@ const getAiWorldCategories = async () => {
       order: 1,
       isAiWorld: 1,
       aiWorldOrder: 1,
+      createdAt: 1,
+      updatedAt: 1,
     })
     .sort({ aiWorldOrder: 1, createdAt: 1 }) // Primary: aiWorldOrder (ascending), Secondary: createdAt for consistency
     .lean()
