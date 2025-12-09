@@ -11,6 +11,7 @@ const registerByEmail = {
     email: Joi.string().email().required(),
     password: Joi.string().required(),
     username: Joi.string(),
+    deviceId: Joi.string().allow(null, "").optional(),
   }),
 };
 
@@ -32,6 +33,7 @@ const loginByEmail = {
   body: Joi.object().keys({
     email: Joi.string().email().required(),
     password: Joi.string().required(),
+    deviceId: Joi.string().allow(null, "").optional(),
   }),
 };
 
@@ -65,12 +67,14 @@ const resetPassword = {
 const loginByApple = {
   body: Joi.object({
     idToken: Joi.string().required(),
+    deviceId: Joi.string().allow(null, "").optional(),
   }),
 };
 
 const loginByGoogle = {
   body: Joi.object({
     idToken: Joi.string().required(),
+    deviceId: Joi.string().allow(null, "").optional(),
   }),
 };
 
@@ -92,6 +96,25 @@ const registerByMobile = {
   body: Joi.object().keys({
     mobileNumber: Joi.number().strict().required(),
     password: Joi.string().required(),
+    username: Joi.string().optional(),
+    deviceId: Joi.string().allow(null, "").optional(),
+  }),
+};
+
+const loginByMobile = {
+  body: Joi.object().keys({
+    mobileNumber: Joi.number().strict().required(),
+    password: Joi.string().required(),
+    deviceId: Joi.string().allow(null, "").optional(),
+  }),
+};
+
+const guestLogin = {
+  body: Joi.object().keys({
+    deviceId: Joi.string().required().messages({
+      "any.required": "Device ID is required",
+      "string.base": "Device ID must be a string",
+    }),
   }),
 };
 
@@ -110,4 +133,6 @@ export default {
   verifyMobileOtp,
   resendMobileOtp,
   registerByMobile,
+  loginByMobile,
+  guestLogin,
 };

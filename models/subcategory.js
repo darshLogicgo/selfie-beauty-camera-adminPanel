@@ -31,6 +31,9 @@ const SubcategorySchema = new Schema(
     // AI World section fields
     isAiWorld: { type: Boolean, default: false }, // Whether category is in AI World section
     aiWorldOrder: { type: Number, default: 0 }, // Order in AI World section (starts from 1)
+    // AI Photo section fields
+    isAiPhoto: { type: Boolean, default: false }, // Whether category is in AI Photo section
+    aiPhotoOrder: { type: Number, default: 0 }, // Order in AI Photo section (starts from 1)
     // Home section fields (Section 3, 4, 5 use subcategories)
     isSection3: { type: Boolean, default: false }, // Whether subcategory is in Section 3 (Subcategory Grid)
     section3Order: { type: Number, default: 1 }, // Order in Section 3 (starts from 1)

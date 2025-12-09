@@ -7,6 +7,7 @@ import aiWorldRoute from "./routes/aiworld.route.js";
 import subCategory from "./routes/subcategory.route.js";
 import aiPhotoRoute from "./routes/aiphoto.route.js";
 import homeRoute from "./routes/home.route.js";
+import uninstallRoute from "./routes/uninstall.route.js";
 
 export default {
   authRoute,
@@ -17,4 +18,5 @@ export default {
   subCategory,
   aiPhotoRoute,
   homeRoute,
+  uninstallRoute,
 };

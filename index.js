@@ -51,6 +51,9 @@ app.use("/api/v1/aiphoto", router.aiPhotoRoute);
 // Home Routes
 app.use("/api/v1/home", router.homeRoute);
 
+// Uninstall Routes
+app.use("/api/v1/uninstall", router.uninstallRoute);
+
 // Initialize Socket.IO
 initializeSocket(server);
 
