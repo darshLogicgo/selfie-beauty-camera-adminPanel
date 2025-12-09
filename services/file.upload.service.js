@@ -83,7 +83,10 @@ const uploadFile = async ({
       })
     );
 
-    const fileUrl = `${config.cloud.digitalocean.baseUrl}/${fileKey}`;
+    // Normalize URL to avoid double slashes
+    const baseUrl = config.cloud.digitalocean.baseUrl.replace(/\/+$/, ''); // Remove trailing slashes
+    const normalizedFileKey = fileKey.replace(/^\/+/, ''); // Remove leading slashes
+    const fileUrl = `${baseUrl}/${normalizedFileKey}`;
     console.log(`File uploaded successfully: ${fileUrl}`);
 
     return fileUrl;

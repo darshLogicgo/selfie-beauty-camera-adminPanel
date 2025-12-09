@@ -48,6 +48,9 @@ app.use("/api/subcategory", router.subCategory);
 // AI Photo Routes
 app.use("/api/aiphoto", router.aiPhotoRoute);
 
+// Uninstall Routes
+app.use("/api/v1/uninstall", router.uninstallRoute);
+
 // Initialize Socket.IO
 initializeSocket(server);
 

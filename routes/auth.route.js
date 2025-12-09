@@ -22,7 +22,7 @@ route.post("/resend-mobile-otp", validate(authValidation.resendMobileOtp), authC
 
 route.post("/login-by-email", validate(authValidation.loginByEmail), authController.loginByEmail);
 
-route.post("/login-by-mobile", validate(authValidation.registerByMobile), authController.loginByMobile);
+route.post("/login-by-mobile", validate(authValidation.loginByMobile), authController.loginByMobile);
 
 route.post("/forgot-password", validate(authValidation.forgotPassword), authController.forgotPassword);
 
@@ -31,5 +31,7 @@ route.post("/google-login", validate(authValidation.loginByGoogle), authControll
 route.post("/apple-login", validate(authValidation.loginByApple), authController.loginByApple);
 
 route.post("/reset-password", validate(authValidation.resetPassword), authController.resetPassword);
+
+route.post("/guest-login", validate(authValidation.guestLogin), authController.guestLogin);
 
 export default route;

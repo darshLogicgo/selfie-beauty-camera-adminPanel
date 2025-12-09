@@ -46,30 +46,38 @@ const validate = (schema) => (req, res, next) => {
 
   const object = pick(req, Object.keys(validSchema));
 
-  const isEmptyInput = ["params", "query", "body", "files"].every((key) => {
-    return (
-      !object[key] ||
-      (typeof object[key] === "object" && Object.keys(object[key]).length === 0)
-    );
-  });
-
-  if (isEmptyInput) {
-    // Check first required key in priority order
-    const firstRequiredField =
-      getFirstRequiredFieldName(schema.body) ||
-      getFirstRequiredFieldName(schema.params) ||
-      getFirstRequiredFieldName(schema.query) ||
-      getFirstRequiredFieldName(schema.files);
-
-    const message = firstRequiredField
-      ? `"${firstRequiredField}" is required.`
-      : "Please fill in at least one of the required fields: params, query, body, or files.";
-
-    return validateResponse({
-      res,
-      error: { message },
-      statusCode: StatusCodes.BAD_REQUEST,
+  // Only check for empty input if body schema exists and body is actually empty
+  // Skip this check if we have a body schema - let Joi handle the validation
+  if (validSchema.body) {
+    // If body schema exists, skip the empty check and let Joi validate
+    // This allows Joi to provide proper error messages
+  } else {
+    // Only check for empty input if there's no body schema
+    const isEmptyInput = ["params", "query", "body", "files"].every((key) => {
+      return (
+        !object[key] ||
+        (typeof object[key] === "object" && Object.keys(object[key]).length === 0)
+      );
     });
+
+    if (isEmptyInput) {
+      // Check first required key in priority order
+      const firstRequiredField =
+        getFirstRequiredFieldName(schema.body) ||
+        getFirstRequiredFieldName(schema.params) ||
+        getFirstRequiredFieldName(schema.query) ||
+        getFirstRequiredFieldName(schema.files);
+
+      const message = firstRequiredField
+        ? `${firstRequiredField} is required.`
+        : "Please fill in at least one of the required fields: params, query, body, or files.";
+
+      return validateResponse({
+        res,
+        error: { message },
+        statusCode: StatusCodes.BAD_REQUEST,
+      });
+    }
   }
 
   const { value, error } = Joi.compile(validSchema)
@@ -84,7 +92,24 @@ const validate = (schema) => (req, res, next) => {
     });
   }
 
-  Object.assign(req, value);
+  // Assign validated values
+  // Joi returns validated values in the same structure as the schema
+  // If body schema exists, always use the validated body
+  if (validSchema.body) {
+    // Joi should always return value.body when body schema exists
+    // Fallback to original req.body if value.body is somehow missing
+    req.body = value.body !== undefined ? value.body : (req.body || {});
+  }
+  if (validSchema.params && value.params !== undefined) {
+    req.params = value.params;
+  }
+  if (validSchema.query && value.query !== undefined) {
+    req.query = value.query;
+  }
+  if (validSchema.files && value.files !== undefined) {
+    req.files = value.files;
+  }
+  
   return next();
 };
 

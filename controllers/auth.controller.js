@@ -54,7 +54,7 @@ const verifyToken = async (req, res) => {
 // For email registration
 const registerByEmail = async (req, res) => {
   try {
-    const { email, password, username } = req.body;
+    const { email, password, username, deviceId } = req.body;
 
     let user = await userService.findOne({ email, isDeleted: false }, true);
 
@@ -71,7 +71,9 @@ const registerByEmail = async (req, res) => {
           data: null,
         });
       } else {
-        await userService.update(user._id, { otp, otpExpiresAt });
+        const updateData = { otp, otpExpiresAt };
+        if (deviceId) updateData.deviceId = deviceId;
+        await userService.update(user._id, updateData);
       }
     } else {
       const hashPassword = await bcrypt.hash(password, 10);
@@ -84,6 +86,7 @@ const registerByEmail = async (req, res) => {
         username,
         isVerified: false,
       };
+      if (deviceId) newUser.deviceId = deviceId;
 
       await userService.create(newUser);
     }
@@ -112,7 +115,7 @@ const registerByEmail = async (req, res) => {
 // For mobile registration
 const registerByMobile = async (req, res) => {
   try {
-    const { mobileNumber, password, username } = req.body;
+    const { mobileNumber, password, username, deviceId } = req.body;
 
     let user = await userService.findOne(
       { mobileNumber, isDeleted: false },
@@ -132,7 +135,9 @@ const registerByMobile = async (req, res) => {
           data: null,
         });
       } else {
-        await userService.update(user._id, { otp, otpExpiresAt });
+        const updateData = { otp, otpExpiresAt };
+        if (deviceId) updateData.deviceId = deviceId;
+        await userService.update(user._id, updateData);
       }
     } else {
       const hashPassword = await bcrypt.hash(password, 10);
@@ -146,6 +151,7 @@ const registerByMobile = async (req, res) => {
         username,
         isVerified: false,
       };
+      if (deviceId) newUser.deviceId = deviceId;
 
       await userService.create(newUser);
     }
@@ -462,7 +468,7 @@ const resendEmailOtp = async (req, res) => {
 // For email login
 const loginByEmail = async (req, res) => {
   try {
-    const { email, password } = req.body;
+    const { email, password, deviceId } = req.body;
 
     let user = await userService.findOne({ email, isDeleted: false });
 
@@ -496,6 +502,11 @@ const loginByEmail = async (req, res) => {
         statusCode: StatusCodes.UNAUTHORIZED,
         data: null,
       });
+    }
+
+    // Update deviceId if provided
+    if (deviceId) {
+      await userService.update(user._id, { deviceId });
     }
 
     const token = jwt.sign(
@@ -542,7 +553,7 @@ const loginByEmail = async (req, res) => {
 // For mobile login
 const loginByMobile = async (req, res) => {
   try {
-    const { mobileNumber, password } = req.body;
+    const { mobileNumber, password, deviceId } = req.body;
 
     let user = await userService.findOne({ mobileNumber, isDeleted: false });
 
@@ -576,6 +587,11 @@ const loginByMobile = async (req, res) => {
         statusCode: StatusCodes.UNAUTHORIZED,
         data: null,
       });
+    }
+
+    // Update deviceId if provided
+    if (deviceId) {
+      await userService.update(user._id, { deviceId });
     }
 
     const token = jwt.sign(
@@ -706,7 +722,7 @@ const resetPassword = async (req, res) => {
 // For google login/registration
 const loginByGoogle = async (req, res) => {
   try {
-    const { idToken } = req.body;
+    const { idToken, deviceId } = req.body;
 
     if (!idToken) {
       return apiResponse({
@@ -745,7 +761,7 @@ const loginByGoogle = async (req, res) => {
       user = await User.findOne({ email, isVerified: true, isDeleted: false });
 
       if (!user) {
-        user = await User.create({
+        const newUserData = {
           email: email,
           username: username,
           password: null,
@@ -754,11 +770,14 @@ const loginByGoogle = async (req, res) => {
           providerId: googleId,
           role: enums.userRoleEnum.USER,
           isVerified: true,
-        });
+        };
+        if (deviceId) newUserData.deviceId = deviceId;
+        user = await User.create(newUserData);
       } else {
         user.providerId = googleId;
         user.provider = enums.authProviderEnum.GOOGLE;
         user.password = null;
+        if (deviceId) user.deviceId = deviceId;
         await user.save();
       }
     }
@@ -800,7 +819,7 @@ const loginByGoogle = async (req, res) => {
 // For apple login/registration
 const loginByApple = async (req, res) => {
   try {
-    const { idToken } = req.body;
+    const { idToken, deviceId } = req.body;
 
     if (!idToken) {
       return apiResponse({
@@ -830,7 +849,7 @@ const loginByApple = async (req, res) => {
       user = await User.findOne({ email, isVerified: true, isDeleted: false });
 
       if (!user) {
-        user = await User.create({
+        const newUserData = {
           email: email,
           username: email?.split("@")[0]?.replace(".", " ") || "apple_user",
           password: null,
@@ -839,11 +858,14 @@ const loginByApple = async (req, res) => {
           providerId: appleId,
           role: enums.userRoleEnum.USER,
           isVerified: true,
-        });
+        };
+        if (deviceId) newUserData.deviceId = deviceId;
+        user = await User.create(newUserData);
       } else {
         user.providerId = appleId;
         user.provider = enums.authProviderEnum.APPLE;
         user.password = null;
+        if (deviceId) user.deviceId = deviceId;
         await user.save();
       }
     }
@@ -882,6 +904,89 @@ const loginByApple = async (req, res) => {
   }
 };
 
+// For guest login
+const guestLogin = async (req, res) => {
+  try {
+    const { deviceId } = req.body;
+
+    if (!deviceId) {
+      return apiResponse({
+        res,
+        status: false,
+        statusCode: StatusCodes.BAD_REQUEST,
+        message: "Device ID is required",
+        data: null,
+      });
+    }
+
+    // Find real user (non-demo) with this deviceId
+    const realUser = await User.findOne({
+      isDemo: false,
+      deviceId,
+      isDeleted: false,
+    });
+
+    if (realUser) {
+      return apiResponse({
+        res,
+        status: false,
+        statusCode: StatusCodes.BAD_REQUEST,
+        message: `User email ${realUser.email} already in use`,
+        data: null,
+      });
+    }
+
+    // Find or create demo user
+    let user = await User.findOne({ deviceId, isDemo: true, isDeleted: false });
+
+    if (!user) {
+      const generateShortId = helper.createId({ length: 16 });
+      const email = `${generateShortId}@selfie.app`;
+      const username = generateShortId;
+
+      user = await User.create({
+        deviceId,
+        isDemo: true,
+        email,
+        username,
+        isVerified: true,
+        role: enums.userRoleEnum.USER,
+        provider: enums.authProviderEnum.EMAIL,
+      });
+    }
+
+    // Get user data without sensitive fields
+    const result = await User.findById(user._id)
+      .select("-password -otp -otpExpiresAt -secretKey -recoveryCode")
+      .lean();
+
+    // Generate token
+    const token = await helper.generateToken({
+      userId: user._id,
+    });
+
+    return apiResponse({
+      res,
+      status: true,
+      statusCode: StatusCodes.OK,
+      message: "Successfully logged in as guest",
+      data: {
+        token,
+        ...result,
+      },
+    });
+  } catch (error) {
+    console.error("guestLogin error:", error);
+    return apiResponse({
+      res,
+      status: false,
+      statusCode: StatusCodes.INTERNAL_SERVER_ERROR,
+      message: error.message || "Internal server error",
+      data: null,
+    });
+  }
+};
+
 export default {
   verifyToken,
   registerByEmail,
@@ -897,4 +1002,5 @@ export default {
   loginByApple,
   registerByMobile,
   loginByMobile,
+  guestLogin,
 };

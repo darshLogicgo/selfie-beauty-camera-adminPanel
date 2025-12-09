@@ -90,9 +90,22 @@ const toBoolean = (value) => {
 };
 
 const extractFileKey = (url) => {
-  const parts = url.split("/");
-  const fileKey = parts.slice(3).join("/");
-  return fileKey;
+  try {
+    // Parse URL to get the pathname, which handles double slashes correctly
+    const urlObj = new URL(url);
+    // Remove leading slash from pathname
+    return urlObj.pathname.replace(/^\/+/, '');
+  } catch (error) {
+    // Fallback to old method if URL parsing fails
+    const parts = url.split("/").filter(part => part !== ""); // Remove empty parts from double slashes
+    // Find the domain part and get everything after it
+    const domainIndex = parts.findIndex(part => part.includes('.'));
+    if (domainIndex !== -1 && domainIndex < parts.length - 1) {
+      return parts.slice(domainIndex + 1).join("/");
+    }
+    // If domain not found, use old method
+    return parts.slice(3).join("/");
+  }
 };
 
 const ensureUserId = async (userId, email) => {
@@ -104,6 +117,16 @@ const ensureUserId = async (userId, email) => {
         console.error("Error fetching user by email:", err.message);
         return "ErrorFetching";
     }
+};
+
+// Generate short ID for guest users
+const createId = ({ length = 16 } = {}) => {
+  const chars = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+  let result = '';
+  for (let i = 0; i < length; i++) {
+    result += chars.charAt(Math.floor(Math.random() * chars.length));
+  }
+  return result;
 };
 
 export default {
@@ -118,5 +141,6 @@ export default {
   validateEntitiesExistence,
   toBoolean,
   generateOTPArray,
-  ensureUserId
+  ensureUserId,
+  createId
 };

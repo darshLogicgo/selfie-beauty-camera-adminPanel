@@ -5,6 +5,7 @@ const updateUserProfile = {
   body: Joi.object().keys({
     username: Joi.string().min(1).max(100),
     profileImage: Joi.string().allow(null, ""),
+    deviceId: Joi.string().allow(null, "").optional(),
   }),
 };
 

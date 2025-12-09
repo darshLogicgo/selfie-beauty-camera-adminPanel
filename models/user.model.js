@@ -76,13 +76,15 @@ const schema = new mongoose.Schema(
     },
     expiresIn: {
       type: String,
-      default: null,
+      default: null, 
     },
     secretKey: { type: String },
     isTwoFactorEnabled: { type: Boolean, default: false },
     twoFactorQr: { type: String, trim: true },
     recoveryCode: [{ type: Number }],
     fcmToken: { type: String, default: null },
+    deviceId: { type: String, default: null },
+    isDemo: { type: Boolean, default: false, index: true },
     countryCode: { type: String },
   },
   {
