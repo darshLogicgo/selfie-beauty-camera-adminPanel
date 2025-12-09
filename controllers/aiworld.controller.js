@@ -30,6 +30,8 @@ const getAllCategoriesForAiWorld = async (req, res) => {
           order: 1,
           isAiWorld: 1,
           aiWorldOrder: 1,
+          selectImage: 1,
+          prompt: 1,
           createdAt: 1,
           updatedAt: 1,
         })
@@ -98,6 +100,8 @@ const getAiWorldCategories = async (req, res) => {
           order: 1,
           isAiWorld: 1,
           aiWorldOrder: 1,
+          selectImage: 1,
+          prompt: 1,
           createdAt: 1,
           updatedAt: 1,
         })

@@ -10,11 +10,7 @@ const router = express.Router();
  * GET /api/aiphoto/
  * Get all subcategories for AI Photo selection
  */
-router.get(
-  "/",
-  verifyToken,
-  aiPhotoController.getAllSubcategoriesForAiPhoto
-);
+router.get("/", verifyToken, aiPhotoController.getAllSubcategoriesForAiPhoto);
 
 /**
  * GET /api/aiphoto/list
@@ -39,11 +35,10 @@ router.patch(
  * Toggle subcategory AI Photo status
  */
 router.patch(
-  "/:id/aiphoto",
+  "/:id/toggle",
   verifyToken,
   validate(aiPhotoValidation.toggleAiPhotoValidation),
   aiPhotoController.toggleSubcategoryAiPhoto
 );
 
 export default router;
-

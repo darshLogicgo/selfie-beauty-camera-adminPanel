@@ -2,7 +2,6 @@ import Joi from "joi";
 import { StatusCodes } from "http-status-codes";
 import { apiResponse } from "../helper/api-response.helper.js";
 
-
 const baseSchema = {
   categoryId: Joi.string().trim().required().messages({
     "any.required": "categoryId is required",
@@ -18,6 +17,11 @@ const baseSchema = {
   video_rec: Joi.string().allow("", null),
   status: Joi.boolean(),
   order: Joi.number().integer().min(1),
+  selectImage: Joi.number().integer().min(1).optional().default(1).messages({
+    "number.base": "selectImage must be a number",
+    "number.integer": "selectImage must be an integer",
+    "number.min": "selectImage must be at least 1",
+  }),
 };
 
 // Create
@@ -101,6 +105,15 @@ export const toggleStatusSchema = {
   }),
 };
 
+export const togglePremiumSchema = {
+  params: Joi.object({
+    id: Joi.string().required(),
+  }),
+  body: Joi.object({
+    isPremium: Joi.boolean().optional(),
+  }),
+};
+
 // Batch order update
 export const updateOrderSchema = {
   body: Joi.array()
@@ -158,7 +171,8 @@ export const manageAssetSchema = {
   })
     .or("addUrl", "removeUrl", "removeUrls")
     .messages({
-      "object.missing": "Please provide either addUrl, removeUrl, or removeUrls",
+      "object.missing":
+        "Please provide either addUrl, removeUrl, or removeUrls",
     }),
 };
 
@@ -166,6 +180,7 @@ export default {
   createSubcategorySchema,
   updateSubcategorySchema,
   toggleStatusSchema,
+  togglePremiumSchema,
   updateOrderSchema,
   requireAtLeastOneMedia,
   manageAssetSchema,

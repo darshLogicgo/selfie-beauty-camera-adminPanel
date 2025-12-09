@@ -16,30 +16,63 @@ export const getAiPhotoSubcategories = async (req, res) => {
     const filter = { isAiWorld: true };
 
     // Sort by aiWorldOrder (ascending), then by createdAt
-    const sort = { aiWorldOrder: 1, createdAt: -1 };
+    const sort = { aiWorldOrder: 1 };
 
     const [items, totalItems] = await Promise.all([
-      Subcategory.find(filter)
-        .sort(sort)
-        .skip(skip)
-        .limit(lim)
-        .lean(),
+      Subcategory.find(filter).sort(sort).skip(skip).limit(lim).lean(),
       Subcategory.countDocuments(filter),
     ]);
 
     const totalPages = Math.ceil(totalItems / lim);
 
+    // Transform each subcategory to have name, photos array, selectImage, and isPremium
+    const formattedData = items.map((item) => {
+      // Get asset_images for this subcategory (filter out empty strings)
+      const photos = [];
+      if (
+        item.asset_images &&
+        Array.isArray(item.asset_images) &&
+        item.asset_images.length > 0
+      ) {
+        const validImages = item.asset_images.filter(
+          (img) => img && img.trim() !== ""
+        );
+        photos.push(...validImages);
+      }
+
+      return {
+        _id: item._id,
+        name: item.subcategoryTitle || "",
+        photos: photos,
+        selectImage:
+          item.selectImage !== undefined && item.selectImage !== null
+            ? item.selectImage
+            : 1,
+        isPremium: item.isPremium !== undefined ? item.isPremium : false,
+        categoryId: item.categoryId,
+        img_sqr: item.img_sqr || "",
+        img_rec: item.img_rec || "",
+        video_sqr: item.video_sqr || "",
+        video_rec: item.video_rec || "",
+        status: item.status,
+        order: item.order,
+        isAiWorld: item.isAiWorld,
+        aiWorldOrder: item.aiWorldOrder,
+      };
+    });
+
+    // Return response with array of subcategories
     return apiResponse({
       res,
       status: true,
       statusCode: StatusCodes.OK,
       message: "AI Photo subcategories fetched successfully",
-      data: items,
-      pagination: { 
-        page: pageNum, 
+      data: formattedData,
+      pagination: {
+        page: pageNum,
         limit: lim,
         total: totalItems,
-        totalPages 
+        totalPages,
       },
     });
   } catch (error) {
@@ -68,15 +101,6 @@ export const toggleSubcategoryAiPhoto = async (req, res) => {
       });
     }
 
-    if (typeof isAiWorld !== "boolean") {
-      return apiResponse({
-        res,
-        status: false,
-        statusCode: StatusCodes.BAD_REQUEST,
-        message: "isAiWorld must be a boolean value",
-      });
-    }
-
     const subcategory = await Subcategory.findById(id);
     if (!subcategory) {
       return apiResponse({
@@ -87,59 +111,36 @@ export const toggleSubcategoryAiPhoto = async (req, res) => {
       });
     }
 
-    let updateData = { isAiWorld };
+    // If isAiWorld is not provided, toggle the current status
+    // If provided, use the provided value
+    const newAiWorldStatus =
+      typeof isAiWorld === "boolean" ? isAiWorld : !subcategory.isAiWorld;
 
-    // If adding to AI Photo, assign order
-    if (isAiWorld) {
-      // Find max aiWorldOrder
-      const maxDoc = await Subcategory.findOne({
-        isAiWorld: true,
-        aiWorldOrder: { $exists: true, $ne: null, $gte: 1 },
-      })
-        .sort({ aiWorldOrder: -1 })
-        .select("aiWorldOrder")
-        .lean();
-
-      // Next order = max + 1, or 1 if no items exist
-      const nextOrder = maxDoc && maxDoc.aiWorldOrder ? maxDoc.aiWorldOrder + 1 : 1;
-      updateData.aiWorldOrder = nextOrder;
-    } else {
-      // If removing from AI Photo, reset order to 0
-      updateData.aiWorldOrder = 0;
-
-      // Reorder remaining items
-      try {
-        const remaining = await Subcategory.find({
-          isAiWorld: true,
-          _id: { $ne: id },
-        })
-          .sort({ aiWorldOrder: 1, createdAt: 1 })
-          .select("_id aiWorldOrder")
-          .lean();
-
-        // Reassign orders starting from 1
-        for (let i = 0; i < remaining.length; i++) {
-          await Subcategory.findByIdAndUpdate(remaining[i]._id, {
-            aiWorldOrder: i + 1,
-          });
-        }
-      } catch (err) {
-        console.error("Error reordering AI Photo items:", err);
-      }
-    }
+    // Only update isAiWorld status, don't change any order
+    const updateData = { isAiWorld: newAiWorldStatus };
 
     const updated = await Subcategory.findByIdAndUpdate(id, updateData, {
       new: true,
-    });
+    }).lean();
+
+    // Ensure selectImage and isPremium fields exist with default values
+    const updatedWithDefaults = {
+      ...updated,
+      selectImage:
+        updated.selectImage !== undefined && updated.selectImage !== null
+          ? updated.selectImage
+          : 1,
+      isPremium: updated.isPremium !== undefined ? updated.isPremium : false,
+    };
 
     return apiResponse({
       res,
       status: true,
       statusCode: StatusCodes.OK,
-      message: isAiWorld
-        ? "Subcategory added to AI Photo successfully"
-        : "Subcategory removed from AI Photo successfully",
-      data: updated,
+      message: newAiWorldStatus
+        ? "AI Photo activated successfully"
+        : "AI Photo deactivated successfully",
+      data: updatedWithDefaults,
     });
   } catch (error) {
     console.error("toggleSubcategoryAiPhoto error:", error);
@@ -226,7 +227,9 @@ export const getAllSubcategoriesForAiPhoto = async (req, res) => {
     const lim = Number(limit);
     const skip = (pageNum - 1) * lim;
 
-    const filter = {};
+    const filter = {
+      status: true, // Only show subcategories with status: true
+    };
 
     if (categoryId) {
       if (!mongoose.Types.ObjectId.isValid(categoryId)) {
@@ -240,17 +243,25 @@ export const getAllSubcategoriesForAiPhoto = async (req, res) => {
       filter.categoryId = categoryId;
     }
 
-    // Get all subcategories, sorted by category and order
-    const sort = { categoryId: 1, order: 1, createdAt: -1 };
+    // Get all subcategories, sorted by aiWorldOrder (for AI Photo selection)
+    const sort = { aiWorldOrder: 1, createdAt: -1 };
 
     const [items, totalItems] = await Promise.all([
-      Subcategory.find(filter)
-        .sort(sort)
-        .skip(skip)
-        .limit(lim)
-        .lean(),
+      Subcategory.find(filter).sort(sort).skip(skip).limit(lim).lean(),
       Subcategory.countDocuments(filter),
     ]);
+
+    // Ensure selectImage and isPremium fields exist with default values for all subcategories
+    const itemsWithDefaults = items.map((subcategory) => ({
+      ...subcategory,
+      selectImage:
+        subcategory.selectImage !== undefined &&
+        subcategory.selectImage !== null
+          ? subcategory.selectImage
+          : 1,
+      isPremium:
+        subcategory.isPremium !== undefined ? subcategory.isPremium : false,
+    }));
 
     const totalPages = Math.ceil(totalItems / lim);
 
@@ -259,12 +270,12 @@ export const getAllSubcategoriesForAiPhoto = async (req, res) => {
       status: true,
       statusCode: StatusCodes.OK,
       message: "Subcategories fetched successfully",
-      data: items,
+      data: itemsWithDefaults,
       pagination: {
         page: pageNum,
         limit: lim,
         total: totalItems,
-        totalPages
+        totalPages,
       },
     });
   } catch (error) {
@@ -284,4 +295,3 @@ export default {
   reorderAiPhotoSubcategories,
   getAllSubcategoriesForAiPhoto,
 };
-

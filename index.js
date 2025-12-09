@@ -43,10 +43,13 @@ app.use("/api/v1/trending", router.trendingRoute);
 app.use("/api/v1/ai-world", router.aiWorldRoute);
 
 // Subcategory Routes
-app.use("/api/subcategory", router.subCategory);
+app.use("/api/v1/subcategory", router.subCategory);
 
 // AI Photo Routes
-app.use("/api/aiphoto", router.aiPhotoRoute);
+app.use("/api/v1/aiphoto", router.aiPhotoRoute);
+
+// Home Routes
+app.use("/api/v1/home", router.homeRoute);
 
 // Initialize Socket.IO
 initializeSocket(server);

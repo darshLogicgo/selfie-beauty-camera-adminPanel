@@ -1,9 +1,11 @@
 import express from "express";
 import { verifyToken } from "../middleware/verify-token.middleware.js";
+import verifyRole from "../middleware/verify-role.middleware.js";
 import validate from "../middleware/validate.middleware.js";
 import uploadMiddleware from "../middleware/upload.middleware.js"; // adjust path if different
 import subcategoryController from "../controllers/subcategory.controller.js";
 import subcategoryValidation from "../validations/subcategory.validation.js";
+import enums from "../config/enum.config.js";
 
 const router = express.Router();
 
@@ -11,13 +13,20 @@ const router = express.Router();
 router.post(
   "/",
   verifyToken,
-  uploadMiddleware, 
+  uploadMiddleware,
   validate(subcategoryValidation.createSubcategorySchema),
   subcategoryController.createSubcategory
 );
 
 // Read all
 router.get("/", subcategoryController.getAllSubcategories);
+
+// Get all subcategory titles only (Public - for AI Photo page)
+router.get("/titles", subcategoryController.getAllSubcategoryTitles);
+
+// Get subcategory assets by ID (Public - for AI Photo page grid)
+// Must be before /:id route to avoid conflict
+router.get("/:id/assets", subcategoryController.getSubcategoryAssets);
 
 // Batch order update (must be before /:id routes)
 router.patch(
@@ -33,6 +42,15 @@ router.patch(
   verifyToken,
   validate(subcategoryValidation.toggleStatusSchema),
   subcategoryController.toggleStatus
+);
+
+// Toggle premium status (must be before /:id route)
+router.patch(
+  "/:id/premium",
+  verifyToken,
+  verifyRole([enums.userRoleEnum.ADMIN]),
+  validate(subcategoryValidation.togglePremiumSchema),
+  subcategoryController.toggleSubcategoryPremium
 );
 
 // Manage asset images - PATCH (add or remove URLs) - must be before /:id route
@@ -63,7 +81,7 @@ router.delete(
 router.get("/:id", subcategoryController.getSubcategoryById);
 
 // Update
-router.put(
+router.patch(
   "/:id",
   verifyToken,
   uploadMiddleware,

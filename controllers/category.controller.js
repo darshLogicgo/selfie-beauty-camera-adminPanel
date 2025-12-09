@@ -16,7 +16,16 @@ const { MediaTypes } = enums;
  */
 const createCategory = async (req, res) => {
   try {
-    const { name, status, order, isTrending, isAiWorld } = req.body;
+    const {
+      name,
+      status,
+      order,
+      isTrending,
+      isAiWorld,
+      isPremium,
+      selectImage,
+      prompt,
+    } = req.body;
     const files = req.files || {};
 
     // Automatically assign order to last position if not provided
@@ -35,6 +44,9 @@ const createCategory = async (req, res) => {
       name: name.trim(),
       status: status !== undefined ? status : true,
       order: categoryOrder,
+      isPremium: isPremium !== undefined ? isPremium : false,
+      selectImage: selectImage !== undefined ? Number(selectImage) : 1,
+      prompt: prompt !== undefined ? prompt.trim() : "",
     };
 
     // Always assign trending order (regardless of isTrending status)
@@ -58,6 +70,61 @@ const createCategory = async (req, res) => {
     // Assign AI World order: if no categories exist, start with 1, otherwise increment
     // Order is assigned even if isAiWorld is false, so it's ready when admin toggles it later
     payload.aiWorldOrder = maxAiWorldOrder === -1 ? 1 : maxAiWorldOrder + 1;
+
+    // Always assign home section orders (regardless of section status)
+    // Query max orders from ALL categories to ensure unique incrementing order
+    const [
+      maxSection1Order,
+      maxSection2Order,
+      maxSection6Order,
+      maxSection7Order,
+    ] = await Promise.all([
+      Category.findOne({ isDeleted: false })
+        .sort({ section1Order: -1 })
+        .select({ section1Order: 1 })
+        .lean()
+        .limit(1)
+        .hint({ isDeleted: 1, section1Order: -1 }),
+      Category.findOne({ isDeleted: false })
+        .sort({ section2Order: -1 })
+        .select({ section2Order: 1 })
+        .lean()
+        .limit(1)
+        .hint({ isDeleted: 1, section2Order: -1 }),
+      Category.findOne({ isDeleted: false })
+        .sort({ section6Order: -1 })
+        .select({ section6Order: 1 })
+        .lean()
+        .limit(1)
+        .hint({ isDeleted: 1, section6Order: -1 }),
+      Category.findOne({ isDeleted: false })
+        .sort({ section7Order: -1 })
+        .select({ section7Order: 1 })
+        .lean()
+        .limit(1)
+        .hint({ isDeleted: 1, section7Order: -1 }),
+    ]);
+
+    payload.isSection1 = false;
+    payload.section1Order =
+      maxSection1Order?.section1Order > 0
+        ? maxSection1Order.section1Order + 1
+        : 1;
+    payload.isSection2 = false;
+    payload.section2Order =
+      maxSection2Order?.section2Order > 0
+        ? maxSection2Order.section2Order + 1
+        : 1;
+    payload.isSection6 = false;
+    payload.section6Order =
+      maxSection6Order?.section6Order > 0
+        ? maxSection6Order.section6Order + 1
+        : 1;
+    payload.isSection7 = false;
+    payload.section7Order =
+      maxSection7Order?.section7Order > 0
+        ? maxSection7Order.section7Order + 1
+        : 1;
 
     // Upload media files if provided (parallel processing for speed)
     const uploadPromises = [];
@@ -166,6 +233,17 @@ const getCategories = async (req, res) => {
           trendingOrder: 1,
           isAiWorld: 1,
           aiWorldOrder: 1,
+          isPremium: 1,
+          selectImage: 1,
+          prompt: 1,
+          isSection1: 1,
+          section1Order: 1,
+          isSection2: 1,
+          section2Order: 1,
+          isSection6: 1,
+          section6Order: 1,
+          isSection7: 1,
+          section7Order: 1,
           updatedAt: 1,
           createdAt: 1,
         })
@@ -179,12 +257,22 @@ const getCategories = async (req, res) => {
 
     const totalPages = Math.ceil(total / limitNum);
 
+    // Ensure selectImage and prompt fields exist with default values for all categories
+    const categoriesWithDefaults = categories.map((category) => ({
+      ...category,
+      selectImage:
+        category.selectImage !== undefined && category.selectImage !== null
+          ? category.selectImage
+          : 1,
+      prompt: category.prompt !== undefined ? category.prompt : "",
+    }));
+
     return apiResponse({
       res,
       statusCode: StatusCodes.OK,
       status: true,
       message: "Categories fetched successfully",
-      data: categories,
+      data: categoriesWithDefaults,
       pagination: {
         page: Number(page),
         limit: limitNum,
@@ -199,6 +287,41 @@ const getCategories = async (req, res) => {
       statusCode: StatusCodes.INTERNAL_SERVER_ERROR,
       status: false,
       message: "Failed to fetch categories",
+      data: null,
+      error: error.message,
+    });
+  }
+};
+
+/**
+ * Get all category titles only (public)
+ * Returns _id and name for all active categories (status: true only)
+ * @route GET /api/v1/categories/titles
+ * @access Public
+ */
+const getCategoryTitles = async (req, res) => {
+  try {
+    // Only fetch active categories (status: true) that are not deleted
+    const categories = await categoryService
+      .find({ isDeleted: false, status: true })
+      .select({ _id: 1, name: 1 })
+      .sort({ order: 1, createdAt: 1 })
+      .lean();
+
+    return apiResponse({
+      res,
+      statusCode: StatusCodes.OK,
+      status: true,
+      message: "Category titles fetched successfully",
+      data: categories,
+    });
+  } catch (error) {
+    console.error("Fetch Category Titles Error:", error);
+    return apiResponse({
+      res,
+      statusCode: StatusCodes.INTERNAL_SERVER_ERROR,
+      status: false,
+      message: "Failed to fetch category titles",
       data: null,
       error: error.message,
     });
@@ -236,12 +359,22 @@ const getCategoryById = async (req, res) => {
       });
     }
 
+    // Ensure selectImage and prompt fields exist with default values
+    const categoryWithDefaults = {
+      ...(category.toObject ? category.toObject() : category),
+      selectImage:
+        category.selectImage !== undefined && category.selectImage !== null
+          ? category.selectImage
+          : 1,
+      prompt: category.prompt !== undefined ? category.prompt : "",
+    };
+
     return apiResponse({
       res,
       statusCode: StatusCodes.OK,
       status: true,
       message: "Category fetched successfully",
-      data: category,
+      data: categoryWithDefaults,
     });
   } catch (error) {
     console.error("Fetch Category Error:", error);
@@ -265,7 +398,7 @@ const getCategoryById = async (req, res) => {
 const updateCategory = async (req, res) => {
   try {
     const { id } = req.params;
-    const { name, status, order } = req.body;
+    const { name, status, order, isPremium, selectImage, prompt } = req.body;
     const files = req.files || {};
 
     if (!mongoose.Types.ObjectId.isValid(id)) {
@@ -296,6 +429,9 @@ const updateCategory = async (req, res) => {
     if (name !== undefined) updateData.name = name.trim();
     if (status !== undefined) updateData.status = status;
     if (order !== undefined) updateData.order = Number(order);
+    if (isPremium !== undefined) updateData.isPremium = isPremium;
+    if (selectImage !== undefined) updateData.selectImage = Number(selectImage);
+    if (prompt !== undefined) updateData.prompt = prompt.trim();
 
     // Handle media file updates and null assignments
     const updatePromises = [];
@@ -775,6 +911,74 @@ const toggleCategoryStatus = async (req, res) => {
   }
 };
 
+/**
+ * Toggle category premium status - Optimized with single query
+ * @route PATCH /api/v1/categories/:id/premium
+ * @access Private (Admin)
+ */
+const toggleCategoryPremium = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { isPremium } = req.body || {};
+
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return apiResponse({
+        res,
+        statusCode: StatusCodes.BAD_REQUEST,
+        status: false,
+        message: "Invalid category ID format",
+        data: null,
+      });
+    }
+
+    // Optimized: Use findOneAndUpdate to get current premium status and update in one query
+    const category = await Category.findOneAndUpdate(
+      { _id: id, isDeleted: false },
+      { $set: { updatedAt: new Date() } },
+      { new: false, lean: true, select: "isPremium" }
+    );
+
+    if (!category) {
+      return apiResponse({
+        res,
+        statusCode: StatusCodes.NOT_FOUND,
+        status: false,
+        message: "Category not found",
+        data: null,
+      });
+    }
+
+    const newPremium =
+      isPremium !== undefined ? isPremium : !category.isPremium;
+
+    // Update with new premium status
+    const updated = await categoryService.findByIdAndUpdate(id, {
+      isPremium: newPremium,
+      updatedAt: new Date(),
+    });
+
+    return apiResponse({
+      res,
+      statusCode: StatusCodes.OK,
+      status: true,
+      message: newPremium
+        ? "Category marked as premium successfully"
+        : "Category removed from premium successfully",
+      data: updated,
+    });
+  } catch (error) {
+    console.error("Toggle Premium Error:", error);
+    return apiResponse({
+      res,
+      statusCode: StatusCodes.INTERNAL_SERVER_ERROR,
+      status: false,
+      message: "Failed to toggle category premium status",
+      data: null,
+      error: error.message,
+    });
+  }
+};
+
 export default {
   createCategory,
   getCategories,
@@ -783,4 +987,6 @@ export default {
   deleteCategory,
   reorderCategories,
   toggleCategoryStatus,
+  toggleCategoryPremium,
+  getCategoryTitles,
 };

@@ -1,5 +1,6 @@
 import mongoose from "mongoose";
 import Category from "../models/category.model.js";
+import Subcategory from "../models/Subcategory.js";
 import categoryService from "../services/category.service.js";
 import { apiResponse } from "../helper/api-response.helper.js";
 import { StatusCodes } from "http-status-codes";
@@ -30,6 +31,8 @@ const getAllCategoriesForTrending = async (req, res) => {
           order: 1,
           isTrending: 1,
           trendingOrder: 1,
+          selectImage: 1,
+          prompt: 1,
           createdAt: 1,
           updatedAt: 1,
         })
@@ -76,12 +79,23 @@ const getAllCategoriesForTrending = async (req, res) => {
  */
 const getTrendingCategories = async (req, res) => {
   try {
-    const { page = 1, limit = 10 } = req.query;
-    const skip = (Number(page) - 1) * Number(limit);
-    const limitNum = Number(limit) > 0 ? Number(limit) : 50;
+    // Find "AI Face Swap" category
+    const aiFaceSwapCategory = await Category.findOne({
+      name: { $regex: /AI Face Swap/i },
+      isDeleted: false,
+    })
+      .select({ _id: 1 })
+      .lean();
 
-    // Parallel queries for faster response (optimized with index hints)
-    const [trendingCategories, total] = await Promise.all([
+    const aiFaceSwapCategoryId = aiFaceSwapCategory?._id;
+
+    // Parallel queries for all sections
+    const [
+      first6TrendingCategories,
+      aiFaceSwapSubcategories,
+      next7TrendingCategories,
+    ] = await Promise.all([
+      // Section 1: First 6 trending categories
       categoryService
         .find({
           isDeleted: false,
@@ -96,37 +110,91 @@ const getTrendingCategories = async (req, res) => {
           video_rec: 1,
           status: 1,
           order: 1,
-          isTrending: 1,
-          trendingOrder: 1,
+          selectImage: 1,
+          prompt: 1,
           createdAt: 1,
           updatedAt: 1,
         })
         .sort({ trendingOrder: 1, createdAt: 1 })
-        .skip(skip)
-        .limit(limitNum)
+        .limit(6)
         .lean()
         .hint({ isDeleted: 1, status: 1, isTrending: 1, trendingOrder: 1 }),
-      categoryService.countDocuments({
-        isDeleted: false,
-        status: true,
-        isTrending: true,
-      }),
+
+      // Section 2: All subcategories from "AI Face Swap" category
+      aiFaceSwapCategoryId
+        ? Subcategory.find({
+            categoryId: aiFaceSwapCategoryId,
+            status: true,
+          })
+            .select({
+              categoryId: 1,
+              subcategoryTitle: 1,
+              img_sqr: 1,
+              img_rec: 1,
+              video_sqr: 1,
+              video_rec: 1,
+              status: 1,
+              order: 1,
+              asset_images: 1,
+              createdAt: 1,
+              updatedAt: 1,
+            })
+            .sort({ order: 1, createdAt: 1 })
+            .lean()
+        : Promise.resolve([]),
+
+      // Section 3: Next 7 trending categories (skip first 6)
+      categoryService
+        .find({
+          isDeleted: false,
+          status: true,
+          isTrending: true,
+        })
+        .select({
+          name: 1,
+          img_sqr: 1,
+          img_rec: 1,
+          video_sqr: 1,
+          video_rec: 1,
+          status: 1,
+          order: 1,
+          selectImage: 1,
+          prompt: 1,
+          createdAt: 1,
+          updatedAt: 1,
+        })
+        .sort({ trendingOrder: 1, createdAt: 1 })
+        .skip(6)
+        .limit(7)
+        .lean()
+        .hint({ isDeleted: 1, status: 1, isTrending: 1, trendingOrder: 1 }),
     ]);
 
-    const totalPages = Math.ceil(total / limitNum);
+    // Keep subcategories in their original structure (no transformation needed)
+    const transformedSubcategories = aiFaceSwapSubcategories;
+
+    // Build response with 3 sections
+    const responseData = {
+      section1: {
+        title: "slider",
+        categories: first6TrendingCategories,
+      },
+      section2: {
+        title: "AI Face Swap",
+        subcategories: transformedSubcategories,
+      },
+      section3: {
+        title: "Enhancer Tools",
+        categories: next7TrendingCategories,
+      },
+    };
 
     return apiResponse({
       res,
       statusCode: StatusCodes.OK,
       status: true,
-      message: "Trending categories fetched successfully",
-      data: trendingCategories,
-      pagination: {
-        page: Number(page),
-        limit: limitNum,
-        total,
-        totalPages,
-      },
+      message: "Trending data fetched successfully",
+      data: responseData,
     });
   } catch (error) {
     console.error("Get Trending Categories Error:", error);

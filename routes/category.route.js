@@ -39,6 +39,12 @@ route.post(
 route.get("/", verifyToken, categoryController.getCategories);
 
 /**
+ * GET /api/v1/categories/titles
+ * Get all category titles (Public)
+ */
+route.get("/titles", categoryController.getCategoryTitles);
+
+/**
  * PATCH /api/v1/categories/reorder
  * Bulk reorder categories (Admin only)
  * Must come before /:id routes
@@ -109,6 +115,18 @@ route.patch(
   verifyRole([enums.userRoleEnum.ADMIN]),
   validate(categoryValidation.updateCategoryValidation),
   categoryController.toggleCategoryStatus
+);
+
+/**
+ * PATCH /api/v1/categories/:id/premium
+ * Toggle category premium status (Admin only)
+ */
+route.patch(
+  "/:id/premium",
+  verifyToken,
+  verifyRole([enums.userRoleEnum.ADMIN]),
+  validate(categoryValidation.updateCategoryValidation),
+  categoryController.toggleCategoryPremium
 );
 
 export default route;

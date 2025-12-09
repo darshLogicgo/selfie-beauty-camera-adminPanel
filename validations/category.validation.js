@@ -22,6 +22,26 @@ const createCategoryValidation = {
       isTrending: Joi.boolean().optional().default(false),
       isAiWorld: Joi.boolean().optional().default(false),
 
+      // Premium field
+      isPremium: Joi.boolean().optional().default(false),
+
+      // Select Image count field
+      selectImage: Joi.number()
+        .integer()
+        .min(1)
+        .optional()
+        .default(1)
+        .messages({
+          "number.base": "Select image count must be a number",
+          "number.integer": "Select image count must be an integer",
+          "number.min": "Select image count must be at least 1",
+        }),
+
+      // Prompt field
+      prompt: Joi.string().trim().optional().default("").messages({
+        "string.base": "Prompt must be a string",
+      }),
+
       // Allow file field names in body (they're handled separately via multer in req.files)
       // These are optional and ignored if present as text fields
       img_sqr: Joi.any().optional(),
@@ -47,6 +67,21 @@ const updateCategoryValidation = {
       status: Joi.boolean().optional(),
 
       order: Joi.number().integer().min(0).optional(),
+
+      // Premium field
+      isPremium: Joi.boolean().optional(),
+
+      // Select Image count field
+      selectImage: Joi.number().integer().min(1).optional().messages({
+        "number.base": "Select image count must be a number",
+        "number.integer": "Select image count must be an integer",
+        "number.min": "Select image count must be at least 1",
+      }),
+
+      // Prompt field
+      prompt: Joi.string().trim().optional().messages({
+        "string.base": "Prompt must be a string",
+      }),
 
       // Allow file field names in body (they're handled separately via multer in req.files)
       // These are optional and can be set to null to remove/clear media

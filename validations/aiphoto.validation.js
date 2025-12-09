@@ -8,8 +8,7 @@ export const toggleAiPhotoValidation = {
     }),
   }),
   body: Joi.object({
-    isAiWorld: Joi.boolean().required().messages({
-      "any.required": "isAiWorld is required",
+    isAiWorld: Joi.boolean().optional().messages({
       "boolean.base": "isAiWorld must be a boolean",
     }),
   }),
@@ -44,4 +43,3 @@ export default {
   toggleAiPhotoValidation,
   reorderAiPhotoSubcategoriesValidation,
 };
-
