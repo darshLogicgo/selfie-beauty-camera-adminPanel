@@ -40,9 +40,9 @@ route.get("/", verifyToken, categoryController.getCategories);
 
 /**
  * GET /api/v1/categories/titles
- * Get all category titles (Public)
+ * Get all category titles (Client side - Authenticated)
  */
-route.get("/titles", categoryController.getCategoryTitles);
+route.get("/titles", verifyToken, categoryController.getCategoryTitles);
 
 /**
  * PATCH /api/v1/categories/reorder

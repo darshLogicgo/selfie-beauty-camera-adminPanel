@@ -23,14 +23,18 @@ const SubcategorySchema = new Schema(
 
     status: { type: Boolean, default: true },
     order: { type: Number },
-    asset_images: { type: [String], default: [] }, // Array of additional image URLs
+    asset_images: [
+      {
+        _id: Schema.Types.ObjectId,
+        url: { type: String, required: true },
+        isPremium: { type: Boolean, default: false },
+        imageCount: { type: Number, default: 1, min: 1 },
+      },
+    ], // Array of asset objects with _id, url, isPremium, and imageCount
     // Premium field
     isPremium: { type: Boolean, default: false }, // Whether subcategory is premium
-    // Select Image count field
-    selectImage: { type: Number, default: 1, min: 1 }, // Number of images needed for this subcategory
-    // AI World section fields
-    isAiWorld: { type: Boolean, default: false }, // Whether category is in AI World section
-    aiWorldOrder: { type: Number, default: 0 }, // Order in AI World section (starts from 1)
+    // Image count field
+    imageCount: { type: Number, default: 1, min: 1 }, // Number of images needed for this subcategory
     // AI Photo section fields
     isAiPhoto: { type: Boolean, default: false }, // Whether category is in AI Photo section
     aiPhotoOrder: { type: Number, default: 0 }, // Order in AI Photo section (starts from 1)

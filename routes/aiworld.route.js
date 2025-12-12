@@ -25,7 +25,7 @@ route.get(
  * Get AI World categories (Client side - sorted by aiWorldOrder)
  */
 // route.get("/ai-world", verifyToken, aiWorldController.getAiWorldCategories);
-route.get("/list", aiWorldController.getAiWorldCategories);
+route.get("/list", verifyToken, aiWorldController.getAiWorldCategories);
 
 /**
  * PATCH /api/v1/categories/ai-world/reorder

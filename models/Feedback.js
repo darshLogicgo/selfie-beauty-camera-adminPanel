@@ -1,4 +1,5 @@
 import mongoose from "mongoose";
+import enums from "../config/enum.config.js";
 
 const { Schema, model } = mongoose;
 
@@ -35,6 +36,12 @@ const FeedbackSchema = new Schema(
       type: [String],
       default: [],
     },
+    status: {
+      type: String,
+      enum: Object.values(enums.feedbackStatusEnum),
+      default: enums.feedbackStatusEnum.PENDING,
+      index: true,
+    },
   },
   { timestamps: true }
 );
@@ -42,6 +49,6 @@ const FeedbackSchema = new Schema(
 // Index for efficient queries
 FeedbackSchema.index({ userId: 1, createdAt: -1 });
 FeedbackSchema.index({ createdAt: -1 });
+FeedbackSchema.index({ status: 1, createdAt: -1 });
 
 export default model("Feedback", FeedbackSchema);
-

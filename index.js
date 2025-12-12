@@ -8,6 +8,8 @@ import errorHandler from "./middleware/error-handler.middleware.js";
 import router from "./router.js";
 import initializeSocket from "./socket/socket.io.js";
 
+// test
+
 const app = express();
 const server = http.createServer(app);
 
@@ -53,6 +55,9 @@ app.use("/api/v1/home", router.homeRoute);
 
 // Uninstall Routes
 app.use("/api/v1/uninstall", router.uninstallRoute);
+
+// Feedback Routes
+app.use("/api/v1/feedback", router.feedbackRoute);
 
 // Share Routes (Deep Linking)
 app.use("/api/v1/share", router.shareRoute);

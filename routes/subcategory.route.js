@@ -1,4 +1,5 @@
 import express from "express";
+import multer from "multer";
 import { verifyToken } from "../middleware/verify-token.middleware.js";
 import verifyRole from "../middleware/verify-role.middleware.js";
 import validate from "../middleware/validate.middleware.js";
@@ -8,6 +9,8 @@ import subcategoryValidation from "../validations/subcategory.validation.js";
 import enums from "../config/enum.config.js";
 
 const router = express.Router();
+// Middleware to parse form-data without files
+const parseFormData = multer().none();
 
 // Create
 router.post(
@@ -18,15 +21,28 @@ router.post(
   subcategoryController.createSubcategory
 );
 
-// Read all
-router.get("/", subcategoryController.getAllSubcategories);
+// Read all (Admin only)
+router.get(
+  "/",
+  verifyToken,
+  verifyRole([enums.userRoleEnum.ADMIN]),
+  subcategoryController.getAllSubcategories
+);
 
-// Get all subcategory titles only (Public - for AI Photo page)
-router.get("/titles", subcategoryController.getAllSubcategoryTitles);
+// Get all subcategory titles only (Client side - Authenticated)
+router.get(
+  "/titles",
+  verifyToken,
+  subcategoryController.getAllSubcategoryTitles
+);
 
-// Get subcategory assets by ID (Public - for AI Photo page grid)
+// Get subcategory assets by ID (Client side - Authenticated)
 // Must be before /:id route to avoid conflict
-router.get("/:id/assets", subcategoryController.getSubcategoryAssets);
+router.get(
+  "/:id/assets",
+  verifyToken,
+  subcategoryController.getSubcategoryAssets
+);
 
 // Batch order update (must be before /:id routes)
 router.patch(
@@ -40,6 +56,7 @@ router.patch(
 router.patch(
   "/:id/status",
   verifyToken,
+  parseFormData, // Parse form-data without requiring files
   validate(subcategoryValidation.toggleStatusSchema),
   subcategoryController.toggleStatus
 );
@@ -53,10 +70,20 @@ router.patch(
   subcategoryController.toggleSubcategoryPremium
 );
 
-// Manage asset images - PATCH (add or remove URLs) - must be before /:id route
+// Update individual asset properties (isPremium, imageCount) - must be before /:id/assets route
+router.patch(
+  "/:id/assets/premium",
+  verifyToken,
+  parseFormData, // Parse form-data
+  validate(subcategoryValidation.updateAssetImageSchema),
+  subcategoryController.updateAssetImage
+);
+
+// Manage asset images - PATCH (add files/URLs or remove URLs) - must be before /:id route
 router.patch(
   "/:id/assets",
   verifyToken,
+  uploadMiddleware, // Support file uploads
   validate(subcategoryValidation.manageAssetSchema),
   subcategoryController.manageSubcategoryAssets
 );
@@ -78,11 +105,11 @@ router.delete(
 );
 
 // Read single (must be after all specific routes)
-router.get("/:id", subcategoryController.getSubcategoryById);
+router.get("/:id", verifyToken, subcategoryController.getSubcategoryById);
 
 // Update
 router.patch(
-  "/:id",
+  "/update/:id",
   verifyToken,
   uploadMiddleware,
   validate(subcategoryValidation.updateSubcategorySchema),

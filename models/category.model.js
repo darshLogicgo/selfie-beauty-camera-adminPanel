@@ -25,8 +25,8 @@ const CategorySchema = new mongoose.Schema(
     // Premium field
     isPremium: { type: Boolean, default: false }, // Whether category is premium
 
-    // Select Image count field
-    selectImage: { type: Number, default: 1, min: 1 }, // Number of images needed to create this category (e.g., 3D Model: 1, AI Hug: 2, AI Kiss: 2)
+    // Image count field
+    imageCount: { type: Number, default: 1, min: 1 }, // Number of images needed to create this category (e.g., 3D Model: 1, AI Hug: 2, AI Kiss: 2)
 
     // Prompt field
     prompt: { type: String, default: "", trim: true }, // Default prompt for this category

@@ -12,11 +12,14 @@ export const getAiPhotoSubcategories = async (req, res) => {
     const lim = Number(limit);
     const skip = (pageNum - 1) * lim;
 
-    // Show all subcategories (we'll filter to only include those with images)
-    const filter = {};
+    // Filter only AI Photo subcategories with valid orders
+    const filter = {
+      isAiPhoto: true,
+      aiPhotoOrder: { $gte: 1 }, // Only items with valid order (>= 1)
+    };
 
-    // Sort by aiPhotoOrder (ascending), then by createdAt
-    const sort = { aiPhotoOrder: 1, createdAt: -1 };
+    // Sort by aiPhotoOrder (ascending), then by createdAt for items with same order
+    const sort = { aiPhotoOrder: 1, createdAt: 1 };
 
     const [items, totalItems] = await Promise.all([
       Subcategory.find(filter).sort(sort).skip(skip).limit(lim).lean(),
@@ -35,28 +38,47 @@ export const getAiPhotoSubcategories = async (req, res) => {
       });
     }
 
-    // Transform each subcategory to have name, photos array, selectImage, and isPremium
+    // Transform each subcategory to have name, photos array (with new structure), imageCount, and isPremium
     const formattedData = items.map((item) => {
-      // Get asset_images for this subcategory (filter out empty strings)
+      // Get asset_images for this subcategory and normalize to new structure
       const photos = [];
       if (
         item.asset_images &&
         Array.isArray(item.asset_images) &&
         item.asset_images.length > 0
       ) {
-        const validImages = item.asset_images.filter(
-          (img) => img && img.trim() !== ""
-        );
+        // Normalize to new structure (handle legacy string format)
+        const validImages = item.asset_images
+          .map((asset) => {
+            if (typeof asset === "string") {
+              // Legacy format: convert string URL to object
+              return {
+                _id: new mongoose.Types.ObjectId(),
+                url: asset,
+                isPremium: false,
+                imageCount: 1,
+              };
+            }
+            // Already an object, ensure all fields are present
+            return {
+              _id: asset._id || new mongoose.Types.ObjectId(),
+              url: asset.url || "",
+              isPremium:
+                asset.isPremium !== undefined ? asset.isPremium : false,
+              imageCount: asset.imageCount !== undefined ? asset.imageCount : 1,
+            };
+          })
+          .filter((asset) => asset.url && asset.url.trim() !== "");
         photos.push(...validImages);
       }
 
       return {
         _id: item._id,
         name: item.subcategoryTitle || "",
-        photos: photos,
-        selectImage:
-          item.selectImage !== undefined && item.selectImage !== null
-            ? item.selectImage
+        photos: photos, // Now contains objects with _id, url, isPremium, imageCount
+        imageCount:
+          item.imageCount !== undefined && item.imageCount !== null
+            ? item.imageCount
             : 1,
         isPremium: item.isPremium !== undefined ? item.isPremium : false,
         categoryId: item.categoryId,
@@ -66,8 +88,8 @@ export const getAiPhotoSubcategories = async (req, res) => {
         video_rec: item.video_rec || "",
         status: item.status,
         order: item.order,
-        isAiWorld: item.isAiWorld,
-        aiWorldOrder: item.aiWorldOrder,
+        isAiPhoto: item.isAiPhoto,
+        aiPhotoOrder: item.aiPhotoOrder,
       };
     });
 
@@ -120,98 +142,19 @@ export const toggleSubcategoryAiPhoto = async (req, res) => {
     const newAiPhotoStatus =
       typeof isAiPhoto === "boolean" ? isAiPhoto : !subcategory.isAiPhoto;
 
-    let updateData = { isAiPhoto: newAiPhotoStatus };
-
-    // If adding to AI Photo, assign order only if it doesn't have a valid order
-    if (newAiPhotoStatus) {
-      // Check if the item already has a valid order (>= 1)
-      const existingOrder = subcategory.aiPhotoOrder;
-      const hasValidOrder =
-        existingOrder !== null &&
-        existingOrder !== undefined &&
-        typeof existingOrder === "number" &&
-        existingOrder >= 1;
-
-      if (!hasValidOrder) {
-        // Only calculate new order if current item doesn't have a valid order
-        // Use aggregation to get both count and max order in one query
-        // Exclude current item from calculation
-        const [aggResult] = await Subcategory.aggregate([
-          { $match: { isAiPhoto: true, _id: { $ne: subcategory._id } } },
-          {
-            $group: {
-              _id: null,
-              totalCount: { $sum: 1 },
-              maxOrder: { $max: "$aiPhotoOrder" },
-            },
-          },
-        ]);
-
-        const totalCount = aggResult?.totalCount || 0;
-        const maxOrder = aggResult?.maxOrder || null;
-
-        // Calculate next order (sequential: 1, 2, 3, 4...)
-        let nextOrder = 1;
-        if (
-          maxOrder !== null &&
-          typeof maxOrder === "number" &&
-          maxOrder >= 1
-        ) {
-          // Use max order + 1 if valid order exists
-          nextOrder = maxOrder + 1;
-        } else {
-          // If no valid order exists, use total count + 1
-          nextOrder = totalCount > 0 ? totalCount + 1 : 1;
-        }
-
-        updateData.aiPhotoOrder = nextOrder;
-        console.log(
-          `[AI Photo Order Calculation] Max Order: ${
-            maxOrder || "none"
-          }, Total Count: ${totalCount}, New Order: ${nextOrder}`
-        );
-      } else {
-        // Preserve existing order if it's already valid
-        console.log(
-          `[AI Photo Toggle] Preserving existing order: ${existingOrder}`
-        );
-        // Don't update aiPhotoOrder, keep the existing one
-      }
-    } else {
-      // If removing from AI Photo, reset order to 0
-      updateData.aiPhotoOrder = 0;
-
-      // Reorder remaining items
-      try {
-        const remaining = await Subcategory.find({
-          isAiPhoto: true,
-          _id: { $ne: id },
-        })
-          .sort({ aiPhotoOrder: 1, createdAt: 1 })
-          .select("_id aiPhotoOrder")
-          .lean();
-
-        // Reassign orders starting from 1
-        for (let i = 0; i < remaining.length; i++) {
-          await Subcategory.findByIdAndUpdate(remaining[i]._id, {
-            aiPhotoOrder: i + 1,
-          });
-        }
-      } catch (err) {
-        console.error("Error reordering AI Photo items:", err);
-      }
-    }
+    // Preserve existing aiPhotoOrder when toggling; ordering should only change via drag-and-drop reorder API
+    const updateData = { isAiPhoto: newAiPhotoStatus };
 
     const updated = await Subcategory.findByIdAndUpdate(id, updateData, {
       new: true,
     }).lean();
 
-    // Ensure selectImage and isPremium fields exist with default values
+    // Ensure imageCount and isPremium fields exist with default values
     const updatedWithDefaults = {
       ...updated,
-      selectImage:
-        updated.selectImage !== undefined && updated.selectImage !== null
-          ? updated.selectImage
+      imageCount:
+        updated.imageCount !== undefined && updated.imageCount !== null
+          ? updated.imageCount
           : 1,
       isPremium: updated.isPremium !== undefined ? updated.isPremium : false,
     };
@@ -237,6 +180,9 @@ export const toggleSubcategoryAiPhoto = async (req, res) => {
 };
 
 // Bulk reorder AI Photo subcategories (Admin only)
+// Allows reordering ANY subcategory regardless of isAiPhoto status
+// Handles position conflicts by automatically shifting other subcategories
+// Ensures sequential ordering starting from 1 with no duplicates
 export const reorderAiPhotoSubcategories = async (req, res) => {
   try {
     const payload = req.body;
@@ -250,45 +196,118 @@ export const reorderAiPhotoSubcategories = async (req, res) => {
       });
     }
 
-    const ops = payload
-      .map((p) => {
-        if (!p.id || typeof p.aiPhotoOrder === "undefined") return null;
-
-        if (!mongoose.Types.ObjectId.isValid(p.id)) return null;
-
-        // Ensure order is at least 1
-        const order = Math.max(1, Number(p.aiPhotoOrder));
-
-        return {
-          updateOne: {
-            filter: { _id: new mongoose.Types.ObjectId(p.id) },
-            update: {
-              $set: {
-                aiPhotoOrder: order,
-                isAiPhoto: true, // Ensure it's marked as AI Photo
-              },
-            },
-          },
-        };
-      })
-      .filter(Boolean);
-
-    if (ops.length === 0) {
+    // Validate all IDs before processing
+    const invalidIds = payload.filter(
+      (item) => !item.id || !mongoose.Types.ObjectId.isValid(item.id)
+    );
+    if (invalidIds.length > 0) {
       return apiResponse({
         res,
         status: false,
         statusCode: StatusCodes.BAD_REQUEST,
-        message: "No valid items found",
+        message: "Invalid subcategory ID format provided",
       });
     }
 
-    await Subcategory.bulkWrite(ops);
+    // Get ALL subcategories (not just isAiPhoto: true) to handle all aiPhotoOrder values
+    // This allows reordering any subcategory regardless of isAiPhoto status
+    const allSubcategories = await Subcategory.find({})
+      .select({ _id: 1, aiPhotoOrder: 1 })
+      .sort({ aiPhotoOrder: 1, createdAt: 1 })
+      .lean();
+
+    // Create a map of subcategory IDs to their new aiPhoto orders from request
+    const newAiPhotoOrderMap = new Map();
+    payload.forEach((item) => {
+      if (item.id && typeof item.aiPhotoOrder !== "undefined") {
+        newAiPhotoOrderMap.set(
+          item.id.toString(),
+          Math.max(1, Number(item.aiPhotoOrder))
+        );
+      }
+    });
+
+    // Separate subcategories into reordered and unchanged
+    const reorderedSubcategories = [];
+    const unchangedSubcategories = [];
+
+    allSubcategories.forEach((subcat) => {
+      const subcatId = subcat._id.toString();
+      if (newAiPhotoOrderMap.has(subcatId)) {
+        reorderedSubcategories.push({
+          _id: subcat._id,
+          oldAiPhotoOrder: subcat.aiPhotoOrder || 0,
+          newAiPhotoOrder: newAiPhotoOrderMap.get(subcatId),
+        });
+      } else {
+        unchangedSubcategories.push({
+          _id: subcat._id,
+          aiPhotoOrder: subcat.aiPhotoOrder || 0,
+        });
+      }
+    });
+
+    // Sort reordered subcategories by their desired new order
+    reorderedSubcategories.sort(
+      (a, b) => a.newAiPhotoOrder - b.newAiPhotoOrder
+    );
+
+    // Build final order assignment for ALL subcategories
+    // This ensures no duplicates and proper sequential ordering (1, 2, 3, 4...)
+    const finalOrders = new Map();
+    let currentOrder = 1;
+
+    // Process reordered subcategories first (they get priority at their desired positions)
+    // Assign sequential orders starting from 1
+    reorderedSubcategories.forEach((subcat) => {
+      finalOrders.set(subcat._id.toString(), currentOrder);
+      currentOrder++;
+    });
+
+    // Process unchanged subcategories, maintaining their relative order
+    // Sort by current aiPhotoOrder (items with order first, then items without)
+    unchangedSubcategories.sort((a, b) => {
+      const orderA = a.aiPhotoOrder || 999999;
+      const orderB = b.aiPhotoOrder || 999999;
+      return orderA - orderB;
+    });
+
+    // Assign sequential orders to unchanged subcategories, continuing from where reordered items ended
+    unchangedSubcategories.forEach((subcat) => {
+      finalOrders.set(subcat._id.toString(), currentOrder);
+      currentOrder++;
+    });
+
+    // Build bulk operations to update ALL subcategories (no isAiPhoto filter)
+    // Only update aiPhotoOrder - DO NOT modify the 'order' field or isAiPhoto status
+    const bulkOps = Array.from(finalOrders.entries()).map(
+      ([id, aiPhotoOrderValue]) => ({
+        updateOne: {
+          filter: { _id: new mongoose.Types.ObjectId(id) }, // No isAiPhoto filter - update any subcategory
+          update: {
+            $set: {
+              aiPhotoOrder: aiPhotoOrderValue, // Only update aiPhotoOrder, not 'order' field
+              updatedAt: new Date(),
+            },
+          },
+        },
+      })
+    );
+
+    // Use ordered: false for faster parallel execution
+    const result = await Subcategory.bulkWrite(bulkOps, {
+      ordered: false,
+    });
 
     return apiResponse({
       res,
       status: true,
       statusCode: StatusCodes.OK,
       message: "AI Photo subcategories reordered successfully",
+      data: {
+        modifiedCount: result.modifiedCount,
+        matchedCount: result.matchedCount,
+      },
     });
   } catch (error) {
     console.error("reorderAiPhotoSubcategories error:", error);
@@ -304,14 +323,12 @@ export const reorderAiPhotoSubcategories = async (req, res) => {
 // Get all subcategories with AI Photo status (for selection)
 export const getAllSubcategoriesForAiPhoto = async (req, res) => {
   try {
-    const { categoryId, page = 1, limit = 10 } = req.query;
-
-    const pageNum = Number(page);
-    const lim = Number(limit);
-    const skip = (pageNum - 1) * lim;
+    const { categoryId } = req.query;
 
     const filter = {
       status: true, // Only show subcategories with status: true
+      // Removed isAiPhoto filter to show ALL subcategories
+      // Removed aiPhotoOrder filter to show all subcategories regardless of order
     };
 
     if (categoryId) {
@@ -326,27 +343,83 @@ export const getAllSubcategoriesForAiPhoto = async (req, res) => {
       filter.categoryId = categoryId;
     }
 
-    // Get all subcategories, sorted by aiWorldOrder (for AI Photo selection)
-    const sort = { aiWorldOrder: 1, createdAt: -1 };
-
-    const [items, totalItems] = await Promise.all([
-      Subcategory.find(filter).sort(sort).skip(skip).limit(lim).lean(),
-      Subcategory.countDocuments(filter),
+    // Get all subcategories, sorted by aiPhotoOrder (for AI Photo selection)
+    // Items with aiPhotoOrder come first, then items without
+    // Use aggregation to properly sort: items with aiPhotoOrder first, then items without
+    const items = await Subcategory.aggregate([
+      { $match: filter },
+      {
+        $addFields: {
+          // Add a field to help sort: 0 for items with aiPhotoOrder >= 1, 1 for null/0/undefined
+          aiPhotoOrderSort: {
+            $cond: [
+              {
+                $and: [
+                  { $ne: ["$aiPhotoOrder", null] },
+                  { $gte: ["$aiPhotoOrder", 1] },
+                ],
+              },
+              0, // Valid aiPhotoOrder
+              1, // Invalid/null aiPhotoOrder
+            ],
+          },
+          // Create a sortable order value (use actual aiPhotoOrder or large number for items without order)
+          sortAiPhotoOrder: {
+            $cond: [
+              {
+                $and: [
+                  { $ne: ["$aiPhotoOrder", null] },
+                  { $gte: ["$aiPhotoOrder", 1] },
+                ],
+              },
+              "$aiPhotoOrder", // Use actual aiPhotoOrder value for items with valid order
+              999999, // Large number to push items without order to the end
+            ],
+          },
+        },
+      },
+      // Sort: valid aiPhotoOrders first (by aiPhotoOrder ascending), then items without order (by createdAt ascending)
+      { $sort: { aiPhotoOrderSort: 1, sortAiPhotoOrder: 1, createdAt: 1 } },
+      // Remove temporary sort fields
+      { $project: { aiPhotoOrderSort: 0, sortAiPhotoOrder: 0 } },
     ]);
 
-    // Ensure selectImage and isPremium fields exist with default values for all subcategories
-    const itemsWithDefaults = items.map((subcategory) => ({
-      ...subcategory,
-      selectImage:
-        subcategory.selectImage !== undefined &&
-        subcategory.selectImage !== null
-          ? subcategory.selectImage
-          : 1,
-      isPremium:
-        subcategory.isPremium !== undefined ? subcategory.isPremium : false,
-    }));
+    // Ensure imageCount and isPremium fields exist with default values and normalize asset_images
+    const itemsWithDefaults = items.map((subcategory) => {
+      // Normalize asset_images to new structure (handle legacy string format)
+      const normalizedAssets = (subcategory.asset_images || [])
+        .map((asset) => {
+          if (typeof asset === "string") {
+            // Legacy format: convert string URL to object
+            return {
+              _id: new mongoose.Types.ObjectId(),
+              url: asset,
+              isPremium: false,
+              imageCount: 1,
+            };
+          }
+          // Already an object, ensure all fields are present
+          return {
+            _id: asset._id || new mongoose.Types.ObjectId(),
+            url: asset.url || "",
+            isPremium: asset.isPremium !== undefined ? asset.isPremium : false,
+            imageCount: asset.imageCount !== undefined ? asset.imageCount : 1,
+          };
+        })
+        .filter((asset) => asset.url && asset.url.trim() !== "");
 
-    const totalPages = Math.ceil(totalItems / lim);
+      return {
+        ...subcategory,
+        asset_images: normalizedAssets, // Normalized to new structure
+        imageCount:
+          subcategory.imageCount !== undefined &&
+          subcategory.imageCount !== null
+            ? subcategory.imageCount
+            : 1,
+        isPremium:
+          subcategory.isPremium !== undefined ? subcategory.isPremium : false,
+      };
+    });
 
     return apiResponse({
       res,
@@ -354,12 +427,6 @@ export const getAllSubcategoriesForAiPhoto = async (req, res) => {
       statusCode: StatusCodes.OK,
       message: "Subcategories fetched successfully",
       data: itemsWithDefaults,
-      pagination: {
-        page: pageNum,
-        limit: lim,
-        total: totalItems,
-        totalPages,
-      },
     });
   } catch (error) {
     console.error("getAllSubcategoriesForAiPhoto error:", error);
