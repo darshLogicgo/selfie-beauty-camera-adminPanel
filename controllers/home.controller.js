@@ -18,14 +18,20 @@ export const getHomeData = async (req, res) => {
     // Get home settings for section titles
     const homeSettings = await HomeSettings.getSettings();
 
-    // Check if user is logged in and not a guest
+    // Check if categoryId is provided in query
+    const queryCategoryId = req.query?.categoryId;
+    let priorityCategoryId = null;
+    if (queryCategoryId && mongoose.Types.ObjectId.isValid(queryCategoryId)) {
+      priorityCategoryId = queryCategoryId.toString();
+    }
+
+    // Check if user is logged in
     const userId = req.user?._id || req.user?.id;
-    const isGuest = req.user?.isDemo === true;
     let userClickData = null;
     let userClickedCategoryIds = new Set();
 
-    // Fetch user click data if user is logged in and not a guest
-    if (userId && !isGuest) {
+    // Fetch user click data if user is logged in
+    if (userId) {
       try {
         userClickData = await MediaClick.findOne({ userId }).lean();
         if (userClickData && userClickData.categories) {
@@ -42,23 +48,36 @@ export const getHomeData = async (req, res) => {
     }
 
     // Build Section 1 query - include categories user clicked even if isSection1 is false
+    // Also include priority categoryId from query if provided
     const section1Query = {
       isDeleted: false,
       status: true,
     };
 
-    // If user has clicked categories, include them even if isSection1 is false
+    // Build $or conditions array
+    const orConditions = [{ isSection1: true }];
+
+    // Add priority categoryId from query if provided
+    if (priorityCategoryId) {
+      orConditions.push({
+        _id: new mongoose.Types.ObjectId(priorityCategoryId),
+      });
+    }
+
+    // Add user clicked categories
     if (userClickedCategoryIds.size > 0) {
-      section1Query.$or = [
-        { isSection1: true },
-        {
-          _id: {
-            $in: Array.from(userClickedCategoryIds).map(
-              (id) => new mongoose.Types.ObjectId(id)
-            ),
-          },
+      orConditions.push({
+        _id: {
+          $in: Array.from(userClickedCategoryIds).map(
+            (id) => new mongoose.Types.ObjectId(id)
+          ),
         },
-      ];
+      });
+    }
+
+    // If we have any special conditions, use $or, otherwise default to isSection1: true
+    if (orConditions.length > 1 || priorityCategoryId) {
+      section1Query.$or = orConditions;
     } else {
       // Default: only show categories with isSection1: true
       section1Query.isSection1 = true;
@@ -241,13 +260,65 @@ export const getHomeData = async (req, res) => {
         .hint({ isDeleted: 1, status: 1, isSection7: 1, section7Order: 1 }),
     ]);
 
-    // Sort Section 1 categories based on user click data
+    // Sort Section 1 categories based on priority categoryId and user click data
     let sortedSection1Categories = section1Categories;
 
-    // If user is logged in, not a guest, and has click data, sort by click count
+    // Separate priority category (from query) and other categories
+    let priorityCategory = null;
+    let otherCategories = [];
+
+    if (priorityCategoryId) {
+      const priorityIndex = section1Categories.findIndex(
+        (cat) => cat._id.toString() === priorityCategoryId
+      );
+      if (priorityIndex !== -1) {
+        priorityCategory = section1Categories[priorityIndex];
+        otherCategories = section1Categories.filter(
+          (cat) => cat._id.toString() !== priorityCategoryId
+        );
+      } else {
+        // Priority category not found in results, try to fetch it separately
+        try {
+          const fetchedCategory = await Category.findOne({
+            _id: new mongoose.Types.ObjectId(priorityCategoryId),
+            isDeleted: false,
+            status: true,
+          })
+            .select({
+              name: 1,
+              img_sqr: 1,
+              img_rec: 1,
+              video_sqr: 1,
+              video_rec: 1,
+              status: 1,
+              order: 1,
+              isPremium: 1,
+              selectImage: 1,
+              prompt: 1,
+              section1Order: 1,
+              isSection1: 1,
+              createdAt: 1,
+              updatedAt: 1,
+            })
+            .lean();
+          if (fetchedCategory) {
+            priorityCategory = fetchedCategory;
+            otherCategories = section1Categories;
+          } else {
+            otherCategories = section1Categories;
+          }
+        } catch (error) {
+          console.error("Error fetching priority category:", error);
+          otherCategories = section1Categories;
+        }
+      }
+    } else {
+      otherCategories = section1Categories;
+    }
+
+    // Sort other categories based on user click data
     if (
       userId &&
-      !isGuest &&
       userClickData &&
       userClickData.categories &&
       userClickData.categories.length > 0
@@ -263,7 +334,7 @@ export const getHomeData = async (req, res) => {
       // Sort categories:
       // 1. First by click_count (descending - highest first)
       // 2. If click_count is same, user-clicked categories first, then by section1Order
-      sortedSection1Categories = [...section1Categories].sort((a, b) => {
+      otherCategories = [...otherCategories].sort((a, b) => {
         const aId = a._id.toString();
         const bId = b._id.toString();
         const aClickCount = clickCountMap.get(aId) || 0;
@@ -298,7 +369,14 @@ export const getHomeData = async (req, res) => {
       });
     } else {
       // Default sorting: by section1Order (already sorted from query)
-      sortedSection1Categories = section1Categories;
+      // No need to re-sort if no click data
+    }
+
+    // Combine: priority category first, then other categories
+    if (priorityCategory) {
+      sortedSection1Categories = [priorityCategory, ...otherCategories];
+    } else {
+      sortedSection1Categories = otherCategories;
     }
 
     // Build response with 7 sections (all with title structure)
