@@ -5,58 +5,140 @@ import { apiResponse } from "../helper/api-response.helper.js";
 import mongoose from "mongoose";
 import commonHelper from "../helper/common.helper.js";
 
+// Helper function to preserve existing _id from database or create new one
+const preserveAssetId = (asset) => {
+  if (!asset || !asset._id) {
+    return new mongoose.Types.ObjectId();
+  }
+  if (asset._id instanceof mongoose.Types.ObjectId) {
+    return asset._id;
+  }
+  if (typeof asset._id === "string") {
+    return mongoose.Types.ObjectId.isValid(asset._id)
+      ? new mongoose.Types.ObjectId(asset._id)
+      : new mongoose.Types.ObjectId();
+  }
+  if (asset._id.toString && typeof asset._id.toString === "function") {
+    const idString = asset._id.toString();
+    return mongoose.Types.ObjectId.isValid(idString)
+      ? new mongoose.Types.ObjectId(idString)
+      : new mongoose.Types.ObjectId();
+  }
+  try {
+    const idString = String(asset._id);
+    return mongoose.Types.ObjectId.isValid(idString)
+      ? new mongoose.Types.ObjectId(idString)
+      : new mongoose.Types.ObjectId();
+  } catch {
+    return new mongoose.Types.ObjectId();
+  }
+};
+
+// Normalize asset_images array - preserve IDs from database
+const normalizeAssets = (assets) => {
+  if (!Array.isArray(assets)) return [];
+  return assets
+    .map((asset) => {
+      if (typeof asset === "string") {
+        return {
+          _id: new mongoose.Types.ObjectId(),
+          url: asset,
+          isPremium: false,
+          imageCount: 1,
+        };
+      }
+      return {
+        _id: preserveAssetId(asset),
+        url: asset.url || "",
+        isPremium: asset.isPremium !== undefined ? asset.isPremium : false,
+        imageCount: asset.imageCount !== undefined ? asset.imageCount : 1,
+      };
+    })
+    .filter((asset) => asset.url && asset.url.trim() !== "");
+};
+
+// Normalize subcategory response - ensure all fields are present
+const normalizeSubcategory = (subcategory) => {
+  const subcatObj = subcategory.toObject ? subcategory.toObject() : subcategory;
+  return {
+    ...subcatObj,
+    asset_images: normalizeAssets(subcatObj.asset_images || []),
+    imageCount:
+      subcatObj.imageCount !== undefined && subcatObj.imageCount !== null
+        ? subcatObj.imageCount
+        : 1,
+    isPremium: subcatObj.isPremium !== undefined ? subcatObj.isPremium : false,
+  };
+};
+
+// Process file uploads
 const processMediaUploads = async (req) => {
   const uploaded = {};
-
   const uploadFields = ["img_sqr", "img_rec", "video_sqr", "video_rec"];
 
   for (const field of uploadFields) {
-    if (req.files && req.files[field] && req.files[field][0]) {
-      const file = req.files[field][0];
+    if (req.files?.[field]?.[0]) {
       const fileUrl = await fileUploadService.uploadFile({
-        ...file,
+        ...req.files[field][0],
         folder: "subcategory",
       });
       uploaded[field] = fileUrl;
     }
   }
 
-  // Process asset_images separately (can be multiple files)
-  if (
-    req.files &&
-    req.files.asset_images &&
-    Array.isArray(req.files.asset_images)
-  ) {
-    const assetUrls = [];
+  // Process asset_images files
+  // Note: Assets should have their own imageCount (default 1), not inherit from subcategory
+  if (req.files?.asset_images && Array.isArray(req.files.asset_images)) {
+    // Only use isPremium from body for assets, imageCount for assets should default to 1
+    // Subcategory's imageCount is separate and set on the subcategory itself
+    const { isPremium = false } = req.body || {};
+    const finalIsPremium = Boolean(isPremium);
+
+    const assetObjects = [];
     for (const file of req.files.asset_images) {
       const fileUrl = await fileUploadService.uploadFile({
         buffer: file.buffer,
         mimetype: file.mimetype,
         folder: "subcategory/assets",
       });
-      assetUrls.push(fileUrl);
+      assetObjects.push({
+        _id: new mongoose.Types.ObjectId(),
+        url: fileUrl,
+        isPremium: finalIsPremium,
+        imageCount: 1, // Assets default to 1, can be updated via asset-specific APIs
+      });
     }
-    if (assetUrls.length > 0) {
-      uploaded.asset_images = assetUrls;
+    if (assetObjects.length > 0) {
+      uploaded.asset_images = assetObjects;
     }
   }
 
   return uploaded;
 };
 
+// Calculate next order value
+const calculateNextOrder = async (field = "order", excludeId = null) => {
+  try {
+    const match = excludeId ? { _id: { $ne: excludeId } } : {};
+    const [result] = await Subcategory.aggregate([
+      { $match: match },
+      { $group: { _id: null, maxOrder: { $max: `$${field}` } } },
+    ]);
+    return result?.maxOrder >= 1 ? result.maxOrder + 1 : 1;
+  } catch {
+    const count = await Subcategory.countDocuments(
+      excludeId ? { _id: { $ne: excludeId } } : {}
+    );
+    return count + 1;
+  }
+};
+
 // Create
 export const createSubcategory = async (req, res) => {
   try {
     const payload = req.body || {};
-
-    // Upload files if present
     const mediaUploads = await processMediaUploads(req);
-
-    // Merge uploaded URLs into payload
-    const finalPayload = {
-      ...payload,
-      ...mediaUploads,
-    };
+    const finalPayload = { ...payload, ...mediaUploads };
 
     // Check uniqueness
     const exists = await Subcategory.findOne({
@@ -73,9 +155,7 @@ export const createSubcategory = async (req, res) => {
       });
     }
 
-    // Build the data object without `order` when it's not provided so Mongoose
-    // doesn't apply the schema default (0) before we compute the correct next order.
-    // Normalize media fields: if null, "null", or undefined, set to empty string
+    // Prepare subcategory data
     const subcategoryData = {
       categoryId: finalPayload.categoryId,
       subcategoryTitle: finalPayload.subcategoryTitle,
@@ -95,237 +175,116 @@ export const createSubcategory = async (req, res) => {
         finalPayload.video_rec && finalPayload.video_rec !== "null"
           ? finalPayload.video_rec
           : "",
-      asset_images: finalPayload.asset_images || [], // Include asset_images array
       status:
         typeof finalPayload.status === "boolean" ? finalPayload.status : true,
-      selectImage:
-        finalPayload.selectImage !== undefined
-          ? Number(finalPayload.selectImage)
+      isPremium:
+        finalPayload.isPremium !== undefined
+          ? Boolean(finalPayload.isPremium)
+          : false,
+      imageCount:
+        finalPayload.imageCount !== undefined
+          ? Number(finalPayload.imageCount)
           : 1,
+      isAiPhoto:
+        finalPayload.isAiPhoto !== undefined
+          ? Boolean(finalPayload.isAiPhoto)
+          : false,
+      isSection3:
+        finalPayload.isSection3 !== undefined
+          ? Boolean(finalPayload.isSection3)
+          : false,
+      isSection4:
+        finalPayload.isSection4 !== undefined
+          ? Boolean(finalPayload.isSection4)
+          : false,
+      isSection5:
+        finalPayload.isSection5 !== undefined
+          ? Boolean(finalPayload.isSection5)
+          : false,
     };
 
-    const subcategory = new Subcategory(subcategoryData);
-
-    // Always compute order if not explicitly provided in request
-    // Check if order is a valid number (not string, not null, not undefined)
-    const providedOrder = finalPayload.order;
-    const isValidOrder =
-      typeof providedOrder === "number" &&
-      !isNaN(providedOrder) &&
-      providedOrder >= 1;
-
-    if (!isValidOrder) {
-      try {
-        // GLOBAL ORDER: Find max order across ALL subcategories (not per category)
-        const [aggResult] = await Subcategory.aggregate([
-          {
-            $group: {
-              _id: null,
-              totalCount: { $sum: 1 },
-              maxOrder: { $max: "$order" },
-            },
-          },
-        ]);
-
-        const totalCount = aggResult?.totalCount || 0;
-        const maxOrder = aggResult?.maxOrder || null;
-
-        // Calculate next order (global sequential: 1, 2, 3, 4...)
-        let nextOrder = 1;
-        if (
-          maxOrder !== null &&
-          typeof maxOrder === "number" &&
-          maxOrder >= 1
-        ) {
-          // Use max order + 1 if valid order exists
-          nextOrder = maxOrder + 1;
-        } else {
-          // If no valid order exists, use total count + 1
-          nextOrder = totalCount > 0 ? totalCount + 1 : 1;
-        }
-
-        subcategory.order = nextOrder;
-
-        console.log(
-          `[Order Calculation - GLOBAL] Max Order: ${
-            maxOrder || "none"
-          }, Total Count: ${totalCount}, New Order: ${nextOrder}`
-        );
-      } catch (err) {
-        console.error("Error computing order:", err);
-        // Fallback: count ALL existing subcategories and add 1
-        try {
-          const count = await Subcategory.countDocuments({});
-          subcategory.order = count + 1;
-          console.log(
-            `[Order Fallback - GLOBAL] Count: ${count}, New Order: ${count + 1}`
-          );
-        } catch (countErr) {
-          console.error("Error in fallback order calculation:", countErr);
-          subcategory.order = 1;
-        }
-      }
-    } else {
-      // Use the order provided in request
-      subcategory.order = finalPayload.order;
+    // Handle asset_images - merge uploaded files and body assets
+    const assets = [];
+    if (finalPayload.asset_images && Array.isArray(finalPayload.asset_images)) {
+      assets.push(...finalPayload.asset_images);
     }
-
-    // Always assign AI World order (regardless of isAiWorld status)
-    // Query max aiWorldOrder from ALL subcategories to ensure unique incrementing order
-    const maxAiWorldOrderDoc = await Subcategory.findOne({
-      aiWorldOrder: { $exists: true, $ne: null, $gte: 1 },
-    })
-      .sort({ aiWorldOrder: -1 })
-      .select({ aiWorldOrder: 1 })
-      .lean()
-      .limit(1);
-    subcategory.isAiWorld =
-      finalPayload.isAiWorld !== undefined ? finalPayload.isAiWorld : false;
-    // Assign AI World order: if no subcategories exist with order >= 1, start with 1, otherwise increment
-    // Order is assigned even if isAiWorld is false, so it's ready when admin toggles it later
-    subcategory.aiWorldOrder =
-      maxAiWorldOrderDoc && maxAiWorldOrderDoc.aiWorldOrder
-        ? maxAiWorldOrderDoc.aiWorldOrder + 1
-        : 1;
-
-    // Handle isAiPhoto if provided
-    if (typeof finalPayload.isAiPhoto === "boolean") {
-      subcategory.isAiPhoto = finalPayload.isAiPhoto;
-    } else {
-      subcategory.isAiPhoto = false;
-    }
-
-    // ALWAYS calculate aiPhotoOrder for ALL subcategories (regardless of isAiPhoto)
-    const providedAiPhotoOrder = finalPayload.aiPhotoOrder;
-    const isValidAiPhotoOrder =
-      typeof providedAiPhotoOrder === "number" &&
-      !isNaN(providedAiPhotoOrder) &&
-      providedAiPhotoOrder >= 1;
-
-    // Only calculate if not explicitly provided
-    if (!isValidAiPhotoOrder) {
-      try {
-        // Use aggregation to get both count and max aiPhotoOrder from ALL subcategories
-        const [aggResult] = await Subcategory.aggregate([
-          {
-            $group: {
-              _id: null,
-              totalCount: { $sum: 1 },
-              maxOrder: { $max: "$aiPhotoOrder" },
-            },
-          },
-        ]);
-
-        const totalCount = aggResult?.totalCount || 0;
-        const maxOrder = aggResult?.maxOrder || null;
-
-        // Calculate next aiPhotoOrder (sequential: 1, 2, 3, 4...)
-        let nextAiPhotoOrder = 1;
-        if (
-          maxOrder !== null &&
-          typeof maxOrder === "number" &&
-          maxOrder >= 1
-        ) {
-          // Use max order + 1 if valid order exists
-          nextAiPhotoOrder = maxOrder + 1;
-        } else {
-          // If no valid order exists, use total count + 1
-          nextAiPhotoOrder = totalCount > 0 ? totalCount + 1 : 1;
-        }
-
-        subcategory.aiPhotoOrder = nextAiPhotoOrder;
-        console.log(
-          `[AI Photo Order Calculation - CREATE] Max Order: ${
-            maxOrder || "none"
-          }, Total Count: ${totalCount}, New Order: ${nextAiPhotoOrder}`
-        );
-      } catch (err) {
-        console.error("Error computing aiPhotoOrder:", err);
-        // Fallback: count ALL existing subcategories and add 1
-        try {
-          const count = await Subcategory.countDocuments({});
-          subcategory.aiPhotoOrder = count + 1;
-          console.log(
-            `[AI Photo Order Fallback - CREATE] Count: ${count}, New Order: ${
-              count + 1
-            }`
-          );
-        } catch (countErr) {
-          console.error(
-            "Error in fallback aiPhotoOrder calculation:",
-            countErr
-          );
-          subcategory.aiPhotoOrder = 1;
-        }
-      }
-    } else {
-      // Use the aiPhotoOrder provided in request (user explicitly set it)
-      subcategory.aiPhotoOrder = providedAiPhotoOrder;
-      console.log(
-        `[AI Photo Order - CREATE] Using provided order: ${providedAiPhotoOrder}`
+    if (payload.asset_images && Array.isArray(payload.asset_images)) {
+      const existingUrls = assets.map((a) =>
+        typeof a === "string" ? a : a.url
       );
+      payload.asset_images.forEach((asset) => {
+        const url = typeof asset === "string" ? asset : asset?.url;
+        if (url && !existingUrls.includes(url)) {
+          assets.push(
+            typeof asset === "string"
+              ? {
+                  _id: new mongoose.Types.ObjectId(),
+                  url: asset,
+                  isPremium: false,
+                  imageCount: 1,
+                }
+              : {
+                  _id: preserveAssetId(asset),
+                  url: asset.url || "",
+                  isPremium:
+                    asset.isPremium !== undefined ? asset.isPremium : false,
+                  imageCount:
+                    asset.imageCount !== undefined
+                      ? Number(asset.imageCount)
+                      : 1,
+                }
+          );
+        }
+      });
+    }
+    subcategoryData.asset_images = assets;
+
+    // Calculate orders if not provided
+    if (!finalPayload.order || finalPayload.order < 1) {
+      subcategoryData.order = await calculateNextOrder("order");
+    } else {
+      subcategoryData.order = Number(finalPayload.order);
     }
 
-    // Always assign home section orders (regardless of section status)
-    // Query max orders from ALL subcategories to ensure unique incrementing order
-    const [maxSection3Order, maxSection4Order, maxSection5Order] =
-      await Promise.all([
-        Subcategory.findOne({
-          section3Order: { $exists: true, $ne: null, $gte: 1 },
-        })
-          .sort({ section3Order: -1 })
-          .select({ section3Order: 1 })
-          .lean()
-          .limit(1),
-        Subcategory.findOne({
-          section4Order: { $exists: true, $ne: null, $gte: 1 },
-        })
-          .sort({ section4Order: -1 })
-          .select({ section4Order: 1 })
-          .lean()
-          .limit(1),
-        Subcategory.findOne({
-          section5Order: { $exists: true, $ne: null, $gte: 1 },
-        })
-          .sort({ section5Order: -1 })
-          .select({ section5Order: 1 })
-          .lean()
-          .limit(1),
-      ]);
+    if (!finalPayload.aiPhotoOrder || finalPayload.aiPhotoOrder < 1) {
+      subcategoryData.aiPhotoOrder = await calculateNextOrder("aiPhotoOrder");
+    } else {
+      subcategoryData.aiPhotoOrder = Number(finalPayload.aiPhotoOrder);
+    }
 
-    subcategory.isSection3 =
-      finalPayload.isSection3 !== undefined ? finalPayload.isSection3 : false;
-    subcategory.section3Order =
-      maxSection3Order && maxSection3Order.section3Order
-        ? maxSection3Order.section3Order + 1
-        : 1;
+    if (!finalPayload.section3Order || finalPayload.section3Order < 1) {
+      subcategoryData.section3Order = await calculateNextOrder("section3Order");
+    } else {
+      subcategoryData.section3Order = Number(finalPayload.section3Order);
+    }
 
-    subcategory.isSection4 =
-      finalPayload.isSection4 !== undefined ? finalPayload.isSection4 : false;
-    subcategory.section4Order =
-      maxSection4Order && maxSection4Order.section4Order
-        ? maxSection4Order.section4Order + 1
-        : 1;
+    if (!finalPayload.section4Order || finalPayload.section4Order < 1) {
+      subcategoryData.section4Order = await calculateNextOrder("section4Order");
+    } else {
+      subcategoryData.section4Order = Number(finalPayload.section4Order);
+    }
 
-    subcategory.isSection5 =
-      finalPayload.isSection5 !== undefined ? finalPayload.isSection5 : false;
-    subcategory.section5Order =
-      maxSection5Order && maxSection5Order.section5Order
-        ? maxSection5Order.section5Order + 1
-        : 1;
+    if (!finalPayload.section5Order || finalPayload.section5Order < 1) {
+      subcategoryData.section5Order = await calculateNextOrder("section5Order");
+    } else {
+      subcategoryData.section5Order = Number(finalPayload.section5Order);
+    }
 
+    const subcategory = new Subcategory(subcategoryData);
     await subcategory.save();
 
+    // Fetch fresh from database and return normalized response
+    const saved = await Subcategory.findById(subcategory._id).lean();
     return apiResponse({
       res,
       status: true,
       statusCode: StatusCodes.CREATED,
       message: "Subcategory created successfully",
-      data: subcategory,
+      data: normalizeSubcategory(saved),
     });
   } catch (error) {
     console.error("createSubcategory error:", error);
-    if (error && error.code === 11000) {
+    if (error?.code === 11000) {
       return apiResponse({
         res,
         status: false,
@@ -333,7 +292,6 @@ export const createSubcategory = async (req, res) => {
         message: "Subcategory already exists for this category.",
       });
     }
-
     return apiResponse({
       res,
       status: false,
@@ -346,33 +304,24 @@ export const createSubcategory = async (req, res) => {
 // Read all
 export const getAllSubcategories = async (req, res) => {
   try {
-    const { page = 1, limit = 10, categoryId, status } = req.query;
-
+    const { categoryId, status } = req.query;
     const filter = {};
 
-    if (categoryId) {
-      if (!mongoose.Types.ObjectId.isValid(categoryId)) {
-        return apiResponse({
-          res,
-          status: false,
-          message: "Invalid categoryId",
-          statusCode: StatusCodes.BAD_REQUEST,
-        });
-      }
+    if (categoryId && mongoose.Types.ObjectId.isValid(categoryId)) {
       filter.categoryId = categoryId;
+    } else if (categoryId) {
+      return apiResponse({
+        res,
+        status: false,
+        message: "Invalid categoryId",
+        statusCode: StatusCodes.BAD_REQUEST,
+      });
     }
 
     if (typeof status !== "undefined") {
       filter.status = status === "true" || status === true;
     }
 
-    const pageNum = Number(page);
-    const lim = Number(limit);
-    const skip = (pageNum - 1) * lim;
-
-    // Sort by order in ascending order (1, 2, 3, 4...)
-    // Items with valid order (>= 1) come first, then items without order
-    // Use aggregation to handle null orders properly
     const pipeline = [
       { $match: filter },
       {
@@ -385,44 +334,30 @@ export const getAllSubcategories = async (req, res) => {
               1, // Invalid/null order
             ],
           },
+          // Create a sortable order value (use actual order or large number for items without order)
+          sortOrder: {
+            $cond: [
+              { $and: [{ $ne: ["$order", null] }, { $gte: ["$order", 1] }] },
+              "$order", // Use actual order value for items with valid order
+              999999, // Large number to push items without order to the end
+            ],
+          },
         },
       },
-      { $sort: { orderSort: 1, order: 1, createdAt: -1 } },
-      {
-        $facet: {
-          items: [
-            { $skip: skip },
-            { $limit: lim },
-            { $project: { orderSort: 0 } }, // Remove temporary sort field
-          ],
-          total: [{ $count: "count" }],
-        },
-      },
+      // Sort: valid orders first (by order ascending), then items without order (by createdAt ascending)
+      { $sort: { orderSort: 1, sortOrder: 1, createdAt: 1 } },
+      // Remove temporary sort fields
+      { $project: { orderSort: 0, sortOrder: 0 } },
     ];
 
-    const [result] = await Subcategory.aggregate(pipeline);
-    const items = result.items || [];
-    const totalItems = result.total[0]?.count || 0;
-
-    // Ensure selectImage field exists with default value of 1 for all subcategories
-    const itemsWithSelectImage = items.map((subcategory) => ({
-      ...subcategory,
-      selectImage:
-        subcategory.selectImage !== undefined &&
-        subcategory.selectImage !== null
-          ? subcategory.selectImage
-          : 1,
-    }));
-
-    const totalPages = Math.ceil(totalItems / lim);
+    const items = await Subcategory.aggregate(pipeline);
 
     return apiResponse({
       res,
       status: true,
       statusCode: StatusCodes.OK,
       message: "Subcategories fetched successfully",
-      data: itemsWithSelectImage,
-      pagination: { page: pageNum, totalPages, totalItems, limit: lim },
+      data: items.map(normalizeSubcategory),
     });
   } catch (error) {
     console.error("getAllSubcategories error:", error);
@@ -460,21 +395,12 @@ export const getSubcategoryById = async (req, res) => {
       });
     }
 
-    // Ensure selectImage field exists with default value of 1
-    const itemWithSelectImage = {
-      ...(item.toObject ? item.toObject() : item),
-      selectImage:
-        item.selectImage !== undefined && item.selectImage !== null
-          ? item.selectImage
-          : 1,
-    };
-
     return apiResponse({
       res,
       status: true,
       statusCode: StatusCodes.OK,
       message: "Subcategory fetched successfully",
-      data: itemWithSelectImage,
+      data: normalizeSubcategory(item),
     });
   } catch (error) {
     console.error("getSubcategoryById error:", error);
@@ -512,144 +438,97 @@ export const updateSubcategory = async (req, res) => {
       });
     }
 
-    // Upload new media
+    // Process file uploads
     const mediaUploads = await processMediaUploads(req);
-
-    // Separate asset_images from other fields
     const { asset_images, ...otherUploads } = mediaUploads;
     const finalPayload = { ...payload, ...otherUploads };
 
-    // Normalize media fields: if null, "null", or undefined, set to empty string
+    // Normalize media fields
     const mediaFields = ["img_sqr", "img_rec", "video_sqr", "video_rec"];
-    for (const f of mediaFields) {
-      // If field is explicitly set in payload and is null/undefined/"null", set to empty string
+    for (const field of mediaFields) {
       if (
-        finalPayload[f] === null ||
-        finalPayload[f] === "null" ||
-        finalPayload[f] === undefined
+        finalPayload[field] === null ||
+        finalPayload[field] === "null" ||
+        finalPayload[field] === undefined
       ) {
-        finalPayload[f] = "";
+        finalPayload[field] = "";
       }
-      // Delete old media if new file uploaded
-      if (mediaUploads[f] && existing[f]) {
+      // Delete old file if new one uploaded
+      if (mediaUploads[field] && existing[field]) {
         try {
-          await fileUploadService.deleteFile({ url: existing[f] });
+          await fileUploadService.deleteFile({ url: existing[field] });
         } catch (err) {
-          console.error(`Failed to delete old file for ${f}:`, err);
+          console.error(`Failed to delete old ${field}:`, err);
         }
       }
     }
 
-    // Handle selectImage update
-    if (finalPayload.selectImage !== undefined) {
-      finalPayload.selectImage = Number(finalPayload.selectImage);
+    // Handle asset_images from body
+    let bodyAssetsProvided = false;
+    let bodyAssets = [];
+    if (
+      finalPayload.asset_images !== undefined &&
+      Array.isArray(finalPayload.asset_images)
+    ) {
+      bodyAssetsProvided = true;
+      bodyAssets = normalizeAssets(finalPayload.asset_images);
+      // Remove asset_images from finalPayload since we'll handle it separately
+      delete finalPayload.asset_images;
     }
 
-    // Handle isAiPhoto if provided
-    if (typeof finalPayload.isAiPhoto === "boolean") {
-      // isAiPhoto will be updated via finalPayload
+    // Handle numeric fields
+    if (finalPayload.imageCount !== undefined) {
+      finalPayload.imageCount = Number(finalPayload.imageCount);
     }
-
-    // ALWAYS calculate aiPhotoOrder for ALL subcategories (regardless of isAiPhoto)
-    // Only calculate if not explicitly provided in request
-    const providedAiPhotoOrder = finalPayload.aiPhotoOrder;
-    const isValidAiPhotoOrder =
-      typeof providedAiPhotoOrder === "number" &&
-      !isNaN(providedAiPhotoOrder) &&
-      providedAiPhotoOrder >= 1;
-
-    if (!isValidAiPhotoOrder) {
-      // Only update if current value is 0/null or doesn't exist
-      if (!existing.aiPhotoOrder || existing.aiPhotoOrder < 1) {
-        try {
-          // Use aggregation to get both count and max aiPhotoOrder from ALL subcategories
-          const [aggResult] = await Subcategory.aggregate([
-            { $match: { _id: { $ne: existing._id } } }, // Exclude current item
-            {
-              $group: {
-                _id: null,
-                totalCount: { $sum: 1 },
-                maxOrder: { $max: "$aiPhotoOrder" },
-              },
-            },
-          ]);
-
-          const totalCount = aggResult?.totalCount || 0;
-          const maxOrder = aggResult?.maxOrder || null;
-
-          // Calculate next aiPhotoOrder (sequential: 1, 2, 3, 4...)
-          let nextAiPhotoOrder = 1;
-          if (
-            maxOrder !== null &&
-            typeof maxOrder === "number" &&
-            maxOrder >= 1
-          ) {
-            // Use max order + 1 if valid order exists
-            nextAiPhotoOrder = maxOrder + 1;
-          } else {
-            // If no valid order exists, use total count + 1
-            nextAiPhotoOrder = totalCount > 0 ? totalCount + 1 : 1;
-          }
-
-          finalPayload.aiPhotoOrder = nextAiPhotoOrder;
-          console.log(
-            `[AI Photo Order Calculation - UPDATE] Max Order: ${
-              maxOrder || "none"
-            }, Total Count: ${totalCount}, New Order: ${nextAiPhotoOrder}`
-          );
-        } catch (err) {
-          console.error("Error computing aiPhotoOrder in update:", err);
-          // Fallback: count ALL existing subcategories (excluding current)
-          try {
-            const count = await Subcategory.countDocuments({
-              _id: { $ne: id },
-            });
-            finalPayload.aiPhotoOrder = count + 1;
-            console.log(
-              `[AI Photo Order Fallback - UPDATE] Count: ${count}, New Order: ${
-                count + 1
-              }`
-            );
-          } catch (countErr) {
-            console.error(
-              "Error in fallback aiPhotoOrder calculation:",
-              countErr
-            );
-            finalPayload.aiPhotoOrder = 1;
-          }
-        }
-      }
-      // If existing order is valid (>= 1), keep it
-    } else {
-      // Use the aiPhotoOrder provided in request
-      finalPayload.aiPhotoOrder = providedAiPhotoOrder;
-      console.log(
-        `[AI Photo Order - UPDATE] Using provided order: ${providedAiPhotoOrder}`
-      );
+    if (finalPayload.isPremium !== undefined) {
+      finalPayload.isPremium = Boolean(finalPayload.isPremium);
     }
 
     // Build update object
     const updateObj = { $set: finalPayload };
 
-    // If asset_images were uploaded, add them to the array (prevent duplicates)
+    // Handle asset_images: merge body assets with file uploads
+    let finalAssets = [];
+
+    // Start with body assets if provided, otherwise use existing assets
+    if (bodyAssetsProvided) {
+      // User explicitly provided asset_images (even if empty array)
+      finalAssets = [...bodyAssets];
+    } else {
+      // If body doesn't provide asset_images, keep existing ones
+      finalAssets = normalizeAssets(existing.asset_images || []);
+    }
+
+    // Add new asset_images from file uploads (if any)
     if (
       asset_images &&
       Array.isArray(asset_images) &&
       asset_images.length > 0
     ) {
-      updateObj.$addToSet = { asset_images: { $each: asset_images } };
+      const existingUrls = finalAssets.map((a) => a.url);
+      const newAssets = asset_images.filter(
+        (asset) => !existingUrls.includes(asset.url)
+      );
+      finalAssets = [...finalAssets, ...newAssets];
+    }
+
+    // Update asset_images if:
+    // 1. Body explicitly provided asset_images (even if empty), OR
+    // 2. File uploads are present
+    if (bodyAssetsProvided || (asset_images && asset_images.length > 0)) {
+      updateObj.$set.asset_images = finalAssets;
     }
 
     const updated = await Subcategory.findByIdAndUpdate(id, updateObj, {
       new: true,
-    });
+    }).lean();
 
     return apiResponse({
       res,
       status: true,
       statusCode: StatusCodes.OK,
       message: "Subcategory updated successfully",
-      data: updated,
+      data: normalizeSubcategory(updated),
     });
   } catch (error) {
     console.error("updateSubcategory error:", error);
@@ -661,7 +540,6 @@ export const updateSubcategory = async (req, res) => {
         message: "Subcategory already exists for this category.",
       });
     }
-
     return apiResponse({
       res,
       status: false,
@@ -672,24 +550,9 @@ export const updateSubcategory = async (req, res) => {
 };
 
 // Delete
-// Delete
 export const deleteSubcategory = async (req, res) => {
   try {
     const { id } = req.params;
-
-    // Safety check: If this is an assets route, it should not reach here
-    if (
-      req.path &&
-      (req.path.includes("/assets") || req.originalUrl.includes("/assets"))
-    ) {
-      return apiResponse({
-        res,
-        status: false,
-        statusCode: StatusCodes.BAD_REQUEST,
-        message:
-          "Invalid route. Use DELETE /:id/assets/delete to delete asset images, not the entire subcategory.",
-      });
-    }
 
     if (!mongoose.Types.ObjectId.isValid(id)) {
       return apiResponse({
@@ -710,120 +573,33 @@ export const deleteSubcategory = async (req, res) => {
       });
     }
 
-    // delete media
+    // Delete media files
     const mediaFields = ["img_sqr", "img_rec", "video_sqr", "video_rec"];
-    for (const f of mediaFields) {
-      if (item[f]) {
+    for (const field of mediaFields) {
+      if (item[field]) {
         try {
-          await fileUploadService.deleteFile({ url: item[f] });
+          await fileUploadService.deleteFile({ url: item[field] });
         } catch (err) {
-          console.error(`Failed to delete ${f}:`, err);
+          console.error(`Failed to delete ${field}:`, err);
         }
       }
     }
 
-    // Delete asset images from cloud storage
+    // Delete asset images
     if (item.asset_images && item.asset_images.length > 0) {
-      for (const assetUrl of item.asset_images) {
+      for (const asset of item.asset_images) {
         try {
-          await fileUploadService.deleteFile({ url: assetUrl });
+          const url = typeof asset === "string" ? asset : asset.url;
+          if (url) {
+            await fileUploadService.deleteFile({ url });
+          }
         } catch (err) {
-          console.error(`Failed to delete asset image ${assetUrl}:`, err);
+          console.error(`Failed to delete asset:`, err);
         }
       }
     }
 
-    const categoryId = item.categoryId;
-    const deletedItemData = {
-      isAiWorld: item.isAiWorld,
-      isAiPhoto: item.isAiPhoto,
-      isSection3: item.isSection3,
-      isSection4: item.isSection4,
-      isSection5: item.isSection5,
-    };
     await item.deleteOne();
-
-    // Auto-reorder: fetch ALL remaining items globally, sort by current order, reassign 1, 2, 3...
-    try {
-      // Get ALL remaining items globally, sort by order (ascending: 1, 2, 3...)
-      const remaining = await Subcategory.find({})
-        .sort({ order: 1, createdAt: 1 })
-        .select("_id order")
-        .lean();
-
-      // Reassign orders starting from 1 (global sequential ordering)
-      for (let i = 0; i < remaining.length; i++) {
-        await Subcategory.findByIdAndUpdate(remaining[i]._id, { order: i + 1 });
-      }
-
-      // Reorder AI World section if deleted item was in AI World
-      if (deletedItemData.isAiWorld) {
-        const remainingAiWorld = await Subcategory.find({
-          isAiWorld: true,
-        })
-          .sort({ aiWorldOrder: 1, createdAt: 1 })
-          .select("_id aiWorldOrder")
-          .lean();
-
-        for (let i = 0; i < remainingAiWorld.length; i++) {
-          await Subcategory.findByIdAndUpdate(remainingAiWorld[i]._id, {
-            aiWorldOrder: i + 1,
-          });
-        }
-      }
-
-      // Reorder AI Photo section if deleted item was in AI Photo
-      if (deletedItemData.isAiPhoto) {
-        const remainingAiPhoto = await Subcategory.find({
-          isAiPhoto: true,
-        })
-          .sort({ aiPhotoOrder: 1, createdAt: 1 })
-          .select("_id aiPhotoOrder")
-          .lean();
-
-        for (let i = 0; i < remainingAiPhoto.length; i++) {
-          await Subcategory.findByIdAndUpdate(remainingAiPhoto[i]._id, {
-            aiPhotoOrder: i + 1,
-          });
-        }
-      }
-
-      // Reorder home sections if deleted item was in any section
-      const sectionsToReorder = [];
-      if (deletedItemData.isSection3)
-        sectionsToReorder.push({
-          field: "isSection3",
-          orderField: "section3Order",
-        });
-      if (deletedItemData.isSection4)
-        sectionsToReorder.push({
-          field: "isSection4",
-          orderField: "section4Order",
-        });
-      if (deletedItemData.isSection5)
-        sectionsToReorder.push({
-          field: "isSection5",
-          orderField: "section5Order",
-        });
-
-      for (const section of sectionsToReorder) {
-        const remainingInSection = await Subcategory.find({
-          [section.field]: true,
-        })
-          .sort({ [section.orderField]: 1, createdAt: 1 })
-          .select(`_id ${section.orderField}`)
-          .lean();
-
-        for (let i = 0; i < remainingInSection.length; i++) {
-          await Subcategory.findByIdAndUpdate(remainingInSection[i]._id, {
-            [section.orderField]: i + 1,
-          });
-        }
-      }
-    } catch (err) {
-      console.error("Error reordering after delete:", err);
-      // Don't fail the delete response, just log the error
-    }
 
     return apiResponse({
       res,
@@ -847,8 +623,9 @@ export const deleteSubcategory = async (req, res) => {
 export const toggleStatus = async (req, res) => {
   try {
     const { id } = req.params;
-    const { status } = req.body;
+    let { status } = req.body;
 
+    // Validate ID first
     if (!mongoose.Types.ObjectId.isValid(id)) {
       return apiResponse({
         res,
@@ -858,6 +635,33 @@ export const toggleStatus = async (req, res) => {
       });
     }
 
+    // Handle form-data: convert string to boolean if needed
+    // Support: true/false (boolean), "true"/"false" (string), "1"/"0" (string)
+    if (typeof status === "string") {
+      const lowerStatus = status.toLowerCase();
+      if (lowerStatus === "true" || lowerStatus === "1") {
+        status = true;
+      } else if (lowerStatus === "false" || lowerStatus === "0") {
+        status = false;
+      } else {
+        return apiResponse({
+          res,
+          status: false,
+          statusCode: StatusCodes.BAD_REQUEST,
+          message:
+            "status must be a boolean or string ('true'/'false'/'1'/'0')",
+        });
+      }
+    } else if (typeof status !== "boolean") {
+      return apiResponse({
+        res,
+        status: false,
+        statusCode: StatusCodes.BAD_REQUEST,
+        message: "status must be a boolean value",
+      });
+    }
+
+    // Update subcategory status
     const updated = await Subcategory.findByIdAndUpdate(
       id,
       { status },
@@ -873,22 +677,12 @@ export const toggleStatus = async (req, res) => {
       });
     }
 
-    // Ensure selectImage and isPremium fields exist with default values
-    const updatedWithDefaults = {
-      ...updated,
-      selectImage:
-        updated.selectImage !== undefined && updated.selectImage !== null
-          ? updated.selectImage
-          : 1,
-      isPremium: updated.isPremium !== undefined ? updated.isPremium : false,
-    };
-
     return apiResponse({
       res,
       status: true,
       statusCode: StatusCodes.OK,
       message: "Status updated successfully",
-      data: updatedWithDefaults,
+      data: normalizeSubcategory(updated),
     });
   } catch (error) {
     console.error("toggleStatus error:", error);
@@ -900,8 +694,6 @@ export const toggleStatus = async (req, res) => {
     });
   }
 };
-
-// Batch order update
 
 // Batch order update
 export const updateOrderBatch = async (req, res) => {
@@ -917,25 +709,28 @@ export const updateOrderBatch = async (req, res) => {
       });
     }
 
-    const ops = payload
-      .map((p) => {
-        if (!p.id || typeof p.order === "undefined") return null;
+    // Fetch all subcategories sorted by current order, then rebuild the full sequence
+    const allSubs = await Subcategory.find({})
+      .select({ _id: 1, order: 1, createdAt: 1 })
+      .sort({ order: 1, createdAt: 1 })
+      .lean();
 
-        if (!mongoose.Types.ObjectId.isValid(p.id)) return null;
+    // Filter valid payload entries and sort by desired order asc
+    const desired = payload
+      .filter(
+        (p) =>
+          p &&
+          p.id &&
+          mongoose.Types.ObjectId.isValid(p.id) &&
+          typeof p.order !== "undefined"
+      )
+      .map((p) => ({
+        id: p.id,
+        order: Math.max(1, Number(p.order) || 1),
+      }))
+      .sort((a, b) => a.order - b.order);
 
-        // Ensure order is at least 1
-        const order = Math.max(1, Number(p.order));
-
-        return {
-          updateOne: {
-            filter: { _id: new mongoose.Types.ObjectId(p.id) },
-            update: { $set: { order: order } },
-          },
-        };
-      })
-      .filter(Boolean);
-
-    if (ops.length === 0) {
+    if (desired.length === 0) {
       return apiResponse({
         res,
         status: false,
@@ -943,6 +738,36 @@ export const updateOrderBatch = async (req, res) => {
         message: "No valid items found",
       });
     }
+
+    // Build remaining list (those not in desired)
+    const desiredIds = new Set(desired.map((d) => d.id));
+    const remaining = allSubs.filter((s) => !desiredIds.has(s._id.toString()));
+
+    // Reconstruct final ordered list
+    const finalList = [];
+    let remainingIdx = 0;
+    desired.forEach((d) => {
+      const targetIdx = Math.max(0, d.order - 1);
+      // Fill slots up to targetIdx with remaining items
+      while (finalList.length < targetIdx && remainingIdx < remaining.length) {
+        finalList.push(remaining[remainingIdx]._id.toString());
+        remainingIdx++;
+      }
+      finalList.push(d.id);
+    });
+    // Append any leftover remaining
+    while (remainingIdx < remaining.length) {
+      finalList.push(remaining[remainingIdx]._id.toString());
+      remainingIdx++;
+    }
+
+    // Assign sequential order 1..n
+    const ops = finalList.map((id, idx) => ({
+      updateOne: {
+        filter: { _id: new mongoose.Types.ObjectId(id) },
+        update: { $set: { order: idx + 1 } },
+      },
+    }));
 
     await Subcategory.bulkWrite(ops);
 
@@ -963,7 +788,7 @@ export const updateOrderBatch = async (req, res) => {
   }
 };
 
-// Upload Asset Images (POST with file uploads)
+// Upload Asset Images
 export const uploadAssetImages = async (req, res) => {
   try {
     const { id } = req.params;
@@ -987,14 +812,21 @@ export const uploadAssetImages = async (req, res) => {
       });
     }
 
-    // Process uploaded asset_images files
-    const uploadedUrls = [];
+    // Process uploaded files
+    // Assets should have their own imageCount (default 1), not inherit from subcategory
+    // If imageCount is provided in body, it's for the asset itself
+    const { isPremium = false, imageCount, imagecount } = req.body || {};
+    const finalIsPremium = Boolean(isPremium);
+    // For assets, use imageCount from body if provided, otherwise default to 1
+    const assetImageCount =
+      imageCount !== undefined
+        ? Number(imageCount) || 1
+        : imagecount !== undefined
+        ? Number(imagecount) || 1
+        : 1;
 
-    if (
-      req.files &&
-      req.files.asset_images &&
-      Array.isArray(req.files.asset_images)
-    ) {
+    const uploadedAssets = [];
+    if (req.files?.asset_images && Array.isArray(req.files.asset_images)) {
       for (const file of req.files.asset_images) {
         try {
           const fileUrl = await fileUploadService.uploadFile({
@@ -1002,14 +834,19 @@ export const uploadAssetImages = async (req, res) => {
             mimetype: file.mimetype,
             folder: "subcategory/assets",
           });
-          uploadedUrls.push(fileUrl);
+          uploadedAssets.push({
+            _id: new mongoose.Types.ObjectId(),
+            url: fileUrl,
+            isPremium: finalIsPremium,
+            imageCount: assetImageCount, // Use asset-specific imageCount
+          });
         } catch (err) {
-          console.error("Error uploading asset image:", err);
+          console.error("Error uploading asset:", err);
         }
       }
     }
 
-    if (uploadedUrls.length === 0) {
+    if (uploadedAssets.length === 0) {
       return apiResponse({
         res,
         status: false,
@@ -1018,19 +855,35 @@ export const uploadAssetImages = async (req, res) => {
       });
     }
 
-    // Add uploaded URLs to asset_images array (prevent duplicates using $addToSet)
+    // Filter duplicates
+    const existingUrls = (item.asset_images || []).map((a) =>
+      typeof a === "string" ? a : a.url
+    );
+    const newAssets = uploadedAssets.filter(
+      (asset) => !existingUrls.includes(asset.url)
+    );
+
+    if (newAssets.length === 0) {
+      return apiResponse({
+        res,
+        status: false,
+        statusCode: StatusCodes.BAD_REQUEST,
+        message: "All uploaded files already exist",
+      });
+    }
+
     const updated = await Subcategory.findByIdAndUpdate(
       id,
-      { $addToSet: { asset_images: { $each: uploadedUrls } } },
+      { $push: { asset_images: { $each: newAssets } } },
       { new: true }
-    );
+    ).lean();
 
     return apiResponse({
       res,
       status: true,
       statusCode: StatusCodes.OK,
-      message: `${uploadedUrls.length} asset image(s) uploaded successfully`,
-      data: updated,
+      message: `${newAssets.length} asset image(s) uploaded successfully`,
+      data: normalizeSubcategory(updated),
     });
   } catch (error) {
     console.error("uploadAssetImages error:", error);
@@ -1044,11 +897,14 @@ export const uploadAssetImages = async (req, res) => {
 };
 
 // Delete Single Asset Image
+// Supports deletion by asset ID or URL
 export const deleteAssetImage = async (req, res) => {
   try {
     const { id } = req.params;
-    // Accept URL from either query parameter or request body
-    const url = req.query.url || req.body.url;
+    // Accept either assetId or url from query params or body
+    const assetId =
+      (req.query && req.query.assetId) || (req.body && req.body.assetId);
+    const url = (req.query && req.query.url) || (req.body && req.body.url);
 
     if (!mongoose.Types.ObjectId.isValid(id)) {
       return apiResponse({
@@ -1059,20 +915,19 @@ export const deleteAssetImage = async (req, res) => {
       });
     }
 
-    if (!url) {
+    // Either assetId or url must be provided
+    if (!assetId && !url) {
       return apiResponse({
         res,
         status: false,
         statusCode: StatusCodes.BAD_REQUEST,
         message:
-          'URL is required. Provide it in request body: { "url": "<url>" }',
+          'Either assetId or url is required. Provide in query params or body: { "assetId": "<id>" } or { "url": "<url>" }',
       });
     }
 
-    // Decode the URL if it's from query parameter (already decoded if from body)
-    const decodedUrl = req.query.url ? decodeURIComponent(url) : url;
-
     const item = await Subcategory.findById(id);
+
     if (!item) {
       return apiResponse({
         res,
@@ -1082,8 +937,42 @@ export const deleteAssetImage = async (req, res) => {
       });
     }
 
-    // Check if the URL exists in asset_images array
-    if (!item.asset_images || !item.asset_images.includes(decodedUrl)) {
+    // Find asset to delete by ID or URL
+    let assetToDelete = null;
+    let assetIndex = -1;
+
+    if (assetId) {
+      // Find by asset ID
+      const assets = item.asset_images || [];
+      assetIndex = assets.findIndex((asset) => {
+        if (typeof asset === "string") return false;
+        if (!asset || !asset._id) return false;
+        return (
+          asset._id.toString() === assetId ||
+          asset._id.toString() === String(assetId)
+        );
+      });
+      if (assetIndex !== -1) {
+        assetToDelete = assets[assetIndex];
+      }
+    } else if (url) {
+      // Find by URL
+      const decodedUrl = req.query.url ? decodeURIComponent(url) : url;
+      const assets = item.asset_images || [];
+      assetIndex = assets.findIndex((asset) => {
+        if (typeof asset === "string") return asset === decodedUrl;
+        if (!asset) return false;
+        return (
+          asset.url === decodedUrl ||
+          (asset._id && asset._id.toString() === decodedUrl)
+        );
+      });
+      if (assetIndex !== -1) {
+        assetToDelete = assets[assetIndex];
+      }
+    }
+
+    if (!assetToDelete || assetIndex === -1) {
       return apiResponse({
         res,
         status: false,
@@ -1092,30 +981,61 @@ export const deleteAssetImage = async (req, res) => {
       });
     }
 
-    // Delete the file from cloud storage
-    try {
-      await fileUploadService.deleteFile({ url: decodedUrl });
-    } catch (err) {
-      console.error(
-        `Failed to delete asset image from cloud: ${decodedUrl}`,
-        err
-      );
-      // Continue with DB removal even if cloud deletion fails
+    // Delete from cloud storage
+    // Convert to plain object if it's a Mongoose document
+    const assetObj =
+      assetToDelete && typeof assetToDelete.toObject === "function"
+        ? assetToDelete.toObject()
+        : assetToDelete;
+
+    const urlToDelete =
+      typeof assetObj === "string"
+        ? assetObj
+        : assetObj && assetObj.url
+        ? assetObj.url
+        : null;
+    if (urlToDelete) {
+      try {
+        await fileUploadService.deleteFile({ url: urlToDelete });
+      } catch (err) {
+        console.error("Failed to delete asset from cloud:", err);
+        // Continue with DB removal even if cloud deletion fails
+      }
     }
 
-    // Remove URL from asset_images array
+    // Remove from database
+    let pullQuery;
+    if (typeof assetObj === "string") {
+      pullQuery = urlToDelete;
+    } else {
+      // Use _id for more reliable deletion
+      if (assetObj && assetObj._id) {
+        pullQuery = { _id: assetObj._id };
+      } else if (urlToDelete) {
+        // Fallback to URL if _id not available
+        pullQuery = { url: urlToDelete };
+      } else {
+        // Last resort: use the entire object (MongoDB will match it)
+        pullQuery = assetObj;
+      }
+    }
+
     const updated = await Subcategory.findByIdAndUpdate(
       id,
-      { $pull: { asset_images: decodedUrl } },
+      {
+        $pull: {
+          asset_images: pullQuery,
+        },
+      },
       { new: true }
-    );
+    ).lean();
 
     return apiResponse({
       res,
       status: true,
       statusCode: StatusCodes.OK,
       message: "Asset image deleted successfully",
-      data: updated,
+      data: normalizeSubcategory(updated),
     });
   } catch (error) {
     console.error("deleteAssetImage error:", error);
@@ -1128,7 +1048,7 @@ export const deleteAssetImage = async (req, res) => {
   }
 };
 
-// Manage Asset Images (add or remove URLs from asset_images array)
+// Manage Asset Images (add or remove URLs)
 export const manageSubcategoryAssets = async (req, res) => {
   try {
     const { id } = req.params;
@@ -1153,78 +1073,219 @@ export const manageSubcategoryAssets = async (req, res) => {
       });
     }
 
-    let updated;
+    // Assets should have their own imageCount (default 1), not inherit from subcategory
+    const { isPremium = false, imageCount, imagecount } = req.body || {};
+    const finalIsPremium = Boolean(isPremium);
+    // For assets, use imageCount from body if provided, otherwise default to 1
+    const assetImageCount =
+      imageCount !== undefined
+        ? Number(imageCount) || 1
+        : imagecount !== undefined
+        ? Number(imagecount) || 1
+        : 1;
 
-    if (addUrl) {
-      // Add URL to asset_images array (prevent duplicates using $addToSet)
-      updated = await Subcategory.findByIdAndUpdate(
-        id,
-        { $addToSet: { asset_images: addUrl } },
-        { new: true }
+    // Handle file uploads (upload from PC)
+    if (
+      req.files?.asset_images &&
+      Array.isArray(req.files.asset_images) &&
+      req.files.asset_images.length > 0
+    ) {
+      const uploadedAssets = [];
+      const existingUrls = (item.asset_images || []).map((a) =>
+        typeof a === "string" ? a : a.url
       );
+
+      for (const file of req.files.asset_images) {
+        try {
+          const fileUrl = await fileUploadService.uploadFile({
+            buffer: file.buffer,
+            mimetype: file.mimetype,
+            folder: "subcategory/assets",
+          });
+
+          // Check if URL already exists
+          if (!existingUrls.includes(fileUrl)) {
+            uploadedAssets.push({
+              _id: new mongoose.Types.ObjectId(),
+              url: fileUrl,
+              isPremium: finalIsPremium,
+              imageCount: assetImageCount,
+            });
+            existingUrls.push(fileUrl); // Add to existing to prevent duplicates in same batch
+          }
+        } catch (err) {
+          console.error("Error uploading asset file:", err);
+        }
+      }
+
+      if (uploadedAssets.length > 0) {
+        const updated = await Subcategory.findByIdAndUpdate(
+          id,
+          { $push: { asset_images: { $each: uploadedAssets } } },
+          { new: true }
+        ).lean();
+
+        return apiResponse({
+          res,
+          status: true,
+          statusCode: StatusCodes.OK,
+          message: `${uploadedAssets.length} asset image(s) uploaded successfully`,
+          data: normalizeSubcategory(updated),
+        });
+      } else {
+        return apiResponse({
+          res,
+          status: false,
+          statusCode: StatusCodes.BAD_REQUEST,
+          message: "All uploaded files already exist or failed to upload",
+        });
+      }
+    }
+
+    // Add URL
+    if (addUrl) {
+      const existingUrls = (item.asset_images || []).map((a) =>
+        typeof a === "string" ? a : a.url
+      );
+
+      if (existingUrls.includes(addUrl)) {
+        return apiResponse({
+          res,
+          status: false,
+          statusCode: StatusCodes.BAD_REQUEST,
+          message: "Asset image with this URL already exists",
+        });
+      }
+
+      const newAsset = {
+        _id: new mongoose.Types.ObjectId(),
+        url: addUrl,
+        isPremium: finalIsPremium,
+        imageCount: assetImageCount, // Use asset-specific imageCount
+      };
+
+      const updated = await Subcategory.findByIdAndUpdate(
+        id,
+        { $push: { asset_images: newAsset } },
+        { new: true }
+      ).lean();
 
       return apiResponse({
         res,
         status: true,
         statusCode: StatusCodes.OK,
         message: "Asset image added successfully",
-        data: updated,
+        data: normalizeSubcategory(updated),
       });
     }
 
-    // Handle single URL removal
+    // Remove single URL
     if (removeUrl) {
-      // First, delete the file from cloud storage
-      try {
-        await fileUploadService.deleteFile({ url: removeUrl });
-      } catch (err) {
-        console.error(
-          `Failed to delete asset image from cloud: ${removeUrl}`,
-          err
-        );
-        // Continue with DB removal even if cloud deletion fails
+      const assetToDelete = (item.asset_images || []).find((asset) => {
+        if (typeof asset === "string") return asset === removeUrl;
+        return asset.url === removeUrl || asset._id?.toString() === removeUrl;
+      });
+
+      if (!assetToDelete) {
+        return apiResponse({
+          res,
+          status: false,
+          statusCode: StatusCodes.NOT_FOUND,
+          message: "Asset image not found",
+        });
       }
 
-      // Remove URL from asset_images array
-      updated = await Subcategory.findByIdAndUpdate(
+      const urlToDelete =
+        typeof assetToDelete === "string" ? assetToDelete : assetToDelete.url;
+      try {
+        await fileUploadService.deleteFile({ url: urlToDelete });
+      } catch (err) {
+        console.error("Failed to delete asset from cloud:", err);
+      }
+
+      const updated = await Subcategory.findByIdAndUpdate(
         id,
-        { $pull: { asset_images: removeUrl } },
+        {
+          $pull: {
+            asset_images:
+              typeof assetToDelete === "string"
+                ? removeUrl
+                : { $or: [{ url: urlToDelete }, { _id: assetToDelete._id }] },
+          },
+        },
         { new: true }
-      );
+      ).lean();
 
       return apiResponse({
         res,
         status: true,
         statusCode: StatusCodes.OK,
         message: "Asset image removed successfully",
-        data: updated,
+        data: normalizeSubcategory(updated),
       });
     }
 
-    // Handle multiple URLs removal
+    // Remove multiple URLs
     if (removeUrls && Array.isArray(removeUrls) && removeUrls.length > 0) {
-      // Delete files from cloud storage
-      const deletePromises = removeUrls.map((url) =>
-        fileUploadService.deleteFile({ url }).catch((err) => {
-          console.error(`Failed to delete asset image from cloud: ${url}`, err);
-          return null; // Continue even if deletion fails
-        })
-      );
+      const assetsToDelete = (item.asset_images || []).filter((asset) => {
+        const url = typeof asset === "string" ? asset : asset.url;
+        const assetId =
+          typeof asset === "string" ? null : asset._id?.toString();
+        return removeUrls.includes(url) || removeUrls.includes(assetId);
+      });
+
+      // Delete from cloud storage
+      const deletePromises = assetsToDelete.map((asset) => {
+        const url = typeof asset === "string" ? asset : asset.url;
+        return fileUploadService.deleteFile({ url }).catch((err) => {
+          console.error("Failed to delete asset from cloud:", err);
+          return null;
+        });
+      });
       await Promise.all(deletePromises);
 
-      // Remove all URLs from asset_images array
-      updated = await Subcategory.findByIdAndUpdate(
+      // Remove from database
+      const updated = await Subcategory.findByIdAndUpdate(
         id,
-        { $pull: { asset_images: { $in: removeUrls } } },
+        {
+          $pull: {
+            asset_images: {
+              $or: [
+                { url: { $in: removeUrls } },
+                {
+                  _id: {
+                    $in: removeUrls
+                      .filter((id) => mongoose.Types.ObjectId.isValid(id))
+                      .map((id) => new mongoose.Types.ObjectId(id)),
+                  },
+                },
+              ],
+            },
+          },
+        },
         { new: true }
-      );
+      ).lean();
 
       return apiResponse({
         res,
         status: true,
         statusCode: StatusCodes.OK,
-        message: `${removeUrls.length} asset image(s) removed successfully`,
-        data: updated,
+        message: `${assetsToDelete.length} asset image(s) removed successfully`,
+        data: normalizeSubcategory(updated),
+      });
+    }
+
+    // Check if files were uploaded but validation failed
+    if (
+      req.files?.asset_images &&
+      Array.isArray(req.files.asset_images) &&
+      req.files.asset_images.length > 0
+    ) {
+      return apiResponse({
+        res,
+        status: false,
+        statusCode: StatusCodes.BAD_REQUEST,
+        message: "Failed to process uploaded files. Please try again.",
       });
     }
 
@@ -1232,7 +1293,8 @@ export const manageSubcategoryAssets = async (req, res) => {
       res,
       status: false,
       statusCode: StatusCodes.BAD_REQUEST,
-      message: "Please provide either addUrl, removeUrl, or removeUrls (array)",
+      message:
+        "Please provide either file uploads (asset_images), addUrl, removeUrl, or removeUrls (array)",
     });
   } catch (error) {
     console.error("manageSubcategoryAssets error:", error);
@@ -1245,22 +1307,12 @@ export const manageSubcategoryAssets = async (req, res) => {
   }
 };
 
-/**
- * Get all subcategory titles only (for AI Photo page category tags)
- * Returns only subcategoryTitle and _id for all active subcategories
- * @route GET /api/v1/subcategories/titles
- * @access Public
- */
+// Get all subcategory titles
 export const getAllSubcategoryTitles = async (req, res) => {
   try {
     const { categoryId } = req.query;
+    const filter = { status: true, isAiPhoto: true };
 
-    const filter = {
-      status: true, // Only active subcategories
-      isAiWorld: true, // Only AI World subcategories
-    };
-
-    // Optional filter by categoryId
     if (categoryId) {
       if (!mongoose.Types.ObjectId.isValid(categoryId)) {
         return apiResponse({
@@ -1273,11 +1325,48 @@ export const getAllSubcategoryTitles = async (req, res) => {
       filter.categoryId = categoryId;
     }
 
-    // Fetch only title and _id, sorted by order
-    const subcategories = await Subcategory.find(filter)
-      .select({ _id: 1, subcategoryTitle: 1 })
-      .sort({ order: 1, createdAt: 1 })
-      .lean();
+    // Order titles using aiPhotoOrder; fall back to createdAt for unset values
+    const pipeline = [
+      { $match: filter },
+      {
+        $addFields: {
+          aiPhotoOrderSort: {
+            $cond: [
+              {
+                $and: [
+                  { $ne: ["$aiPhotoOrder", null] },
+                  { $gte: ["$aiPhotoOrder", 1] },
+                ],
+              },
+              0,
+              1,
+            ],
+          },
+          aiPhotoOrderValue: {
+            $cond: [
+              {
+                $and: [
+                  { $ne: ["$aiPhotoOrder", null] },
+                  { $gte: ["$aiPhotoOrder", 1] },
+                ],
+              },
+              "$aiPhotoOrder",
+              999999,
+            ],
+          },
+        },
+      },
+      {
+        $sort: {
+          aiPhotoOrderSort: 1,
+          aiPhotoOrderValue: 1,
+          createdAt: 1,
+        },
+      },
+      { $project: { _id: 1, subcategoryTitle: 1 } },
+    ];
+
+    const subcategories = await Subcategory.aggregate(pipeline);
 
     return apiResponse({
       res,
@@ -1297,14 +1386,7 @@ export const getAllSubcategoryTitles = async (req, res) => {
   }
 };
 
-/**
- * Get all asset images for a specific subcategory (for AI Photo page grid)
- * Returns paginated asset_images array for the subcategory
- * @route GET /api/v1/subcategories/:id/assets
- * @access Public
- * @query page - Page number (default: 1)
- * @query limit - Items per page (default: 10)
- */
+// Get subcategory assets
 export const getSubcategoryAssets = async (req, res) => {
   try {
     const { id } = req.params;
@@ -1321,7 +1403,7 @@ export const getSubcategoryAssets = async (req, res) => {
 
     const subcategory = await Subcategory.findOne({
       _id: id,
-      status: true, // Only active subcategories
+      status: true,
     })
       .select({ _id: 1, subcategoryTitle: 1, asset_images: 1 })
       .lean();
@@ -1335,21 +1417,12 @@ export const getSubcategoryAssets = async (req, res) => {
       });
     }
 
-    // Filter out empty strings from asset_images
-    const allAssetImages = (subcategory.asset_images || []).filter(
-      (img) => img && img.trim() !== ""
-    );
-
-    // Apply pagination
+    const allAssetImages = normalizeAssets(subcategory.asset_images || []);
     const { skip, limit: limitNum } = commonHelper.paginationFun({
       page,
       limit,
     });
-
-    // Get paginated asset images
     const paginatedAssetImages = allAssetImages.slice(skip, skip + limitNum);
-
-    // Get pagination details
     const pagination = commonHelper.paginationDetails({
       page,
       totalItems: allAssetImages.length,
@@ -1379,11 +1452,7 @@ export const getSubcategoryAssets = async (req, res) => {
   }
 };
 
-/**
- * Toggle subcategory premium status - Optimized with single query
- * @route PATCH /api/v1/subcategories/:id/premium
- * @access Private (Admin)
- */
+// Toggle premium status
 export const toggleSubcategoryPremium = async (req, res) => {
   try {
     const { id } = req.params;
@@ -1398,13 +1467,7 @@ export const toggleSubcategoryPremium = async (req, res) => {
       });
     }
 
-    // Optimized: Use findOneAndUpdate to get current premium status and update in one query
-    const subcategory = await Subcategory.findOneAndUpdate(
-      { _id: id },
-      { $set: { updatedAt: new Date() } },
-      { new: false, lean: true, select: "isPremium" }
-    );
-
+    const subcategory = await Subcategory.findById(id).lean();
     if (!subcategory) {
       return apiResponse({
         res,
@@ -1417,25 +1480,11 @@ export const toggleSubcategoryPremium = async (req, res) => {
     const newPremium =
       isPremium !== undefined ? isPremium : !subcategory.isPremium;
 
-    // Update with new premium status
     const updated = await Subcategory.findByIdAndUpdate(
       id,
-      {
-        isPremium: newPremium,
-        updatedAt: new Date(),
-      },
+      { isPremium: newPremium },
       { new: true }
     ).lean();
-
-    // Ensure selectImage and isPremium fields exist with default values
-    const updatedWithDefaults = {
-      ...updated,
-      selectImage:
-        updated.selectImage !== undefined && updated.selectImage !== null
-          ? updated.selectImage
-          : 1,
-      isPremium: updated.isPremium !== undefined ? updated.isPremium : false,
-    };
 
     return apiResponse({
       res,
@@ -1444,7 +1493,7 @@ export const toggleSubcategoryPremium = async (req, res) => {
       message: newPremium
         ? "Subcategory marked as premium successfully"
         : "Subcategory removed from premium successfully",
-      data: updatedWithDefaults,
+      data: normalizeSubcategory(updated),
     });
   } catch (error) {
     console.error("Toggle Subcategory Premium Error:", error);
@@ -1453,6 +1502,144 @@ export const toggleSubcategoryPremium = async (req, res) => {
       status: false,
       statusCode: StatusCodes.INTERNAL_SERVER_ERROR,
       message: "Failed to toggle subcategory premium status",
+    });
+  }
+};
+
+// Update Individual Asset Properties (isPremium, imageCount)
+export const updateAssetImage = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { assetId, url, isPremium, imageCount, imagecount } = req.body || {};
+
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return apiResponse({
+        res,
+        status: false,
+        statusCode: StatusCodes.BAD_REQUEST,
+        message: "Invalid subcategory id",
+      });
+    }
+
+    // Either assetId or url must be provided to identify the asset
+    if (!assetId && !url) {
+      return apiResponse({
+        res,
+        status: false,
+        statusCode: StatusCodes.BAD_REQUEST,
+        message: "Either assetId or url is required to identify the asset",
+      });
+    }
+
+    // At least one of isPremium or imageCount must be provided
+    if (
+      isPremium === undefined &&
+      imageCount === undefined &&
+      imagecount === undefined
+    ) {
+      return apiResponse({
+        res,
+        status: false,
+        statusCode: StatusCodes.BAD_REQUEST,
+        message: "At least one of isPremium or imageCount must be provided",
+      });
+    }
+
+    const item = await Subcategory.findById(id);
+    if (!item) {
+      return apiResponse({
+        res,
+        status: false,
+        statusCode: StatusCodes.NOT_FOUND,
+        message: "Subcategory not found",
+      });
+    }
+
+    // Find the asset to update
+    let assetToUpdate = null;
+    if (assetId) {
+      assetToUpdate = (item.asset_images || []).find((asset) => {
+        if (typeof asset === "string") return false;
+        return (
+          asset._id?.toString() === assetId ||
+          asset._id?.toString() === String(assetId)
+        );
+      });
+    } else if (url) {
+      assetToUpdate = (item.asset_images || []).find((asset) => {
+        if (typeof asset === "string") return asset === url;
+        return asset.url === url;
+      });
+    }
+
+    if (!assetToUpdate) {
+      return apiResponse({
+        res,
+        status: false,
+        statusCode: StatusCodes.NOT_FOUND,
+        message: "Asset not found in this subcategory",
+      });
+    }
+
+    // Prepare update values
+    const updateSet = {};
+
+    if (isPremium !== undefined) {
+      const finalIsPremium =
+        typeof isPremium === "string"
+          ? isPremium.toLowerCase() === "true" || isPremium === "1"
+          : Boolean(isPremium);
+      updateSet["asset_images.$[asset].isPremium"] = finalIsPremium;
+    }
+
+    const finalImageCount =
+      imageCount !== undefined
+        ? Number(imageCount) || 1
+        : imagecount !== undefined
+        ? Number(imagecount) || 1
+        : undefined;
+
+    if (finalImageCount !== undefined) {
+      updateSet["asset_images.$[asset].imageCount"] = finalImageCount;
+    }
+
+    // Update the asset in the array using arrayFilters
+    const assetIdentifier = assetId
+      ? { "asset._id": new mongoose.Types.ObjectId(assetId) }
+      : { "asset.url": url };
+
+    const updated = await Subcategory.findOneAndUpdate(
+      { _id: id },
+      { $set: updateSet },
+      {
+        arrayFilters: [assetIdentifier],
+        new: true,
+      }
+    ).lean();
+
+    if (!updated) {
+      return apiResponse({
+        res,
+        status: false,
+        statusCode: StatusCodes.NOT_FOUND,
+        message: "Asset not found or could not be updated",
+      });
+    }
+
+    return apiResponse({
+      res,
+      status: true,
+      statusCode: StatusCodes.OK,
+      message: "Asset updated successfully",
+      data: normalizeSubcategory(updated),
+    });
+  } catch (error) {
+    console.error("updateAssetImage error:", error);
+    return apiResponse({
+      res,
+      status: false,
+      statusCode: StatusCodes.INTERNAL_SERVER_ERROR,
+      message: "Failed to update asset",
     });
   }
 };
@@ -1469,6 +1656,7 @@ export default {
   uploadAssetImages,
   deleteAssetImage,
   manageSubcategoryAssets,
+  updateAssetImage,
   getAllSubcategoryTitles,
   getSubcategoryAssets,
 };

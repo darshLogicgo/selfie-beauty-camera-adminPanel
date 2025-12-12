@@ -62,6 +62,11 @@ const uninstallReasons = {
   OTHER: "Other",
 };
 
+const feedbackStatusEnum = {
+  PENDING: "pending",
+  RESOLVED: "resolved",
+};
+
 export default {
   nodeEnvEnums,
   authProviderEnum,
@@ -74,4 +79,5 @@ export default {
   allowedVideoMimeTypes,
   maxFileSizeBytes,
   uninstallReasons,
+  feedbackStatusEnum,
 };

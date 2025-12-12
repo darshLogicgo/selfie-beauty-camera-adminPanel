@@ -25,7 +25,7 @@ route.get(
  * Get trending categories (Client side - sorted by trendingOrder)
  */
 // route.get("/trending", verifyToken, trendingController.getTrendingCategories);
-route.get("/list", trendingController.getTrendingCategories);
+route.get("/list", verifyToken, trendingController.getTrendingCategories);
 
 /**
  * PATCH /api/v1/categories/trending/reorder

@@ -23,29 +23,72 @@ const createCategory = async (req, res) => {
       isTrending,
       isAiWorld,
       isPremium,
-      selectImage,
+      imageCount,
+      imagecount, // Handle lowercase variant from form-data
       prompt,
     } = req.body;
     const files = req.files || {};
 
     // Automatically assign order to last position if not provided
-    // First category starts at order 1, subsequent categories increment from max order
-    // Optimized: Only fetch maxOrder if order not provided
+    // If order is provided, check for conflicts and shift existing categories
     let categoryOrder = order !== undefined ? Number(order) : null;
+
     if (categoryOrder === null) {
       // Use optimized query with index hint for faster execution
       const maxOrder = await categoryService.getMaxOrder({ isDeleted: false });
       // If no categories exist (maxOrder = -1), start with 1, otherwise increment
       categoryOrder = maxOrder === -1 ? 1 : maxOrder + 1;
+    } else {
+      // Order is provided - check if it conflicts with existing categories
+      // If conflict exists, shift all categories with order >= providedOrder by +1
+      const conflictingCategory = await categoryService.findOne(
+        { order: categoryOrder, isDeleted: false },
+        true // lean
+      );
+
+      if (conflictingCategory) {
+        // Shift all categories with order >= providedOrder by +1
+        await categoryService.bulkWrite(
+          [
+            {
+              updateMany: {
+                filter: {
+                  order: { $gte: categoryOrder },
+                  isDeleted: false,
+                },
+                update: {
+                  $inc: { order: 1 },
+                },
+              },
+            },
+          ],
+          { ordered: false }
+        );
+      }
     }
 
     // Build payload
+    // Handle imageCount: accept both camelCase and lowercase, convert to number, validate, and use default only if truly undefined/null/empty
+    let finalImageCount = 1; // Default value
+    // Check both imageCount (camelCase) and imagecount (lowercase) for form-data compatibility
+    const imageCountValue = imageCount !== undefined ? imageCount : imagecount;
+    if (
+      imageCountValue !== undefined &&
+      imageCountValue !== null &&
+      imageCountValue !== ""
+    ) {
+      const parsedCount = Number(imageCountValue);
+      if (!isNaN(parsedCount) && parsedCount >= 1) {
+        finalImageCount = parsedCount;
+      }
+    }
+
     const payload = {
       name: name.trim(),
       status: status !== undefined ? status : true,
       order: categoryOrder,
       isPremium: isPremium !== undefined ? isPremium : false,
-      selectImage: selectImage !== undefined ? Number(selectImage) : 1,
+      imageCount: finalImageCount,
       prompt: prompt !== undefined ? prompt.trim() : "",
     };
 
@@ -213,56 +256,45 @@ const createCategory = async (req, res) => {
  */
 const getCategories = async (req, res) => {
   try {
-    const { page = 1, limit = 10 } = req.query;
-    const skip = (Number(page) - 1) * Number(limit);
-    const limitNum = Number(limit) > 0 ? Number(limit) : 50;
+    // Fetch all categories without pagination
+    const categories = await categoryService
+      .find({ isDeleted: false })
+      .select({
+        name: 1,
+        img_sqr: 1,
+        img_rec: 1,
+        video_sqr: 1,
+        video_rec: 1,
+        status: 1,
+        order: 1,
+        isTrending: 1,
+        trendingOrder: 1,
+        isAiWorld: 1,
+        aiWorldOrder: 1,
+        isPremium: 1,
+        imageCount: 1,
+        prompt: 1,
+        isSection1: 1,
+        section1Order: 1,
+        isSection2: 1,
+        section2Order: 1,
+        isSection6: 1,
+        section6Order: 1,
+        isSection7: 1,
+        section7Order: 1,
+        updatedAt: 1,
+        createdAt: 1,
+      })
+      .sort({ order: 1, createdAt: 1 }) // Primary: order (ascending), Secondary: createdAt for consistency
+      .lean()
+      .hint({ isDeleted: 1, order: 1, createdAt: 1 }); // Use index hint for faster query
 
-    // Parallel queries for faster response (optimized with index hints)
-    const [categories, total] = await Promise.all([
-      categoryService
-        .find({ isDeleted: false })
-        .select({
-          name: 1,
-          img_sqr: 1,
-          img_rec: 1,
-          video_sqr: 1,
-          video_rec: 1,
-          status: 1,
-          order: 1,
-          isTrending: 1,
-          trendingOrder: 1,
-          isAiWorld: 1,
-          aiWorldOrder: 1,
-          isPremium: 1,
-          selectImage: 1,
-          prompt: 1,
-          isSection1: 1,
-          section1Order: 1,
-          isSection2: 1,
-          section2Order: 1,
-          isSection6: 1,
-          section6Order: 1,
-          isSection7: 1,
-          section7Order: 1,
-          updatedAt: 1,
-          createdAt: 1,
-        })
-        .sort({ order: 1, createdAt: 1 }) // Primary: order (ascending), Secondary: createdAt for consistency
-        .skip(skip)
-        .limit(limitNum)
-        .lean()
-        .hint({ isDeleted: 1, order: 1, createdAt: 1 }), // Use index hint for faster query
-      categoryService.countDocuments({ isDeleted: false }),
-    ]);
-
-    const totalPages = Math.ceil(total / limitNum);
-
-    // Ensure selectImage and prompt fields exist with default values for all categories
+    // Ensure imageCount and prompt fields exist with default values for all categories
     const categoriesWithDefaults = categories.map((category) => ({
       ...category,
-      selectImage:
-        category.selectImage !== undefined && category.selectImage !== null
-          ? category.selectImage
+      imageCount:
+        category.imageCount !== undefined && category.imageCount !== null
+          ? category.imageCount
           : 1,
       prompt: category.prompt !== undefined ? category.prompt : "",
     }));
@@ -273,12 +305,6 @@ const getCategories = async (req, res) => {
       status: true,
       message: "Categories fetched successfully",
       data: categoriesWithDefaults,
-      pagination: {
-        page: Number(page),
-        limit: limitNum,
-        total,
-        totalPages,
-      },
     });
   } catch (error) {
     console.error("Fetch Categories Error:", error);
@@ -359,12 +385,12 @@ const getCategoryById = async (req, res) => {
       });
     }
 
-    // Ensure selectImage and prompt fields exist with default values
+    // Ensure imageCount and prompt fields exist with default values
     const categoryWithDefaults = {
       ...(category.toObject ? category.toObject() : category),
-      selectImage:
-        category.selectImage !== undefined && category.selectImage !== null
-          ? category.selectImage
+      imageCount:
+        category.imageCount !== undefined && category.imageCount !== null
+          ? category.imageCount
           : 1,
       prompt: category.prompt !== undefined ? category.prompt : "",
     };
@@ -398,7 +424,7 @@ const getCategoryById = async (req, res) => {
 const updateCategory = async (req, res) => {
   try {
     const { id } = req.params;
-    const { name, status, order, isPremium, selectImage, prompt } = req.body;
+    const { name, status, order, isPremium, imageCount, prompt } = req.body;
     const files = req.files || {};
 
     if (!mongoose.Types.ObjectId.isValid(id)) {
@@ -430,7 +456,7 @@ const updateCategory = async (req, res) => {
     if (status !== undefined) updateData.status = status;
     if (order !== undefined) updateData.order = Number(order);
     if (isPremium !== undefined) updateData.isPremium = isPremium;
-    if (selectImage !== undefined) updateData.selectImage = Number(selectImage);
+    if (imageCount !== undefined) updateData.imageCount = Number(imageCount);
     if (prompt !== undefined) updateData.prompt = prompt.trim();
 
     // Handle media file updates and null assignments
@@ -718,25 +744,69 @@ const reorderCategories = async (req, res) => {
     const isFullReorder = allCategories.length === items.length;
 
     if (isFullReorder) {
-      // If all categories are provided, use their specified orders (sorted)
-      // This handles the case where frontend sends complete new order
-      const sortedItems = [...items].sort(
-        (a, b) => Number(a.order) - Number(b.order)
+      // If all categories are provided, respect their desired order values
+      // Use the same logic as partial reorder - it works for both cases
+      const desired = items
+        .filter(
+          (item) =>
+            item &&
+            item._id &&
+            mongoose.Types.ObjectId.isValid(item._id) &&
+            typeof item.order !== "undefined"
+        )
+        .map((item) => ({
+          id: item._id.toString(),
+          order: Math.max(1, Number(item.order) || 1),
+        }))
+        .sort((a, b) => a.order - b.order);
+
+      if (desired.length === 0) {
+        return apiResponse({
+          res,
+          statusCode: StatusCodes.BAD_REQUEST,
+          status: false,
+          message: "No valid categories found for reordering",
+          data: null,
+        });
+      }
+
+      // Build remaining list (should be empty for full reorder, but handle it anyway)
+      const desiredIds = new Set(desired.map((d) => d.id));
+      const remaining = allCategories.filter(
+        (cat) => !desiredIds.has(cat._id.toString())
       );
 
-      // Build final order assignment - assign sequential orders starting from 1
-      const finalOrders = new Map();
-      sortedItems.forEach((item, index) => {
-        finalOrders.set(item._id.toString(), index + 1);
+      // Reconstruct final ordered list respecting desired positions
+      const finalList = [];
+      let remainingIdx = 0;
+
+      desired.forEach((d) => {
+        const targetIdx = Math.max(0, d.order - 1); // Convert to 0-based index
+        // Fill slots up to targetIdx with remaining items
+        while (
+          finalList.length < targetIdx &&
+          remainingIdx < remaining.length
+        ) {
+          finalList.push(remaining[remainingIdx]._id.toString());
+          remainingIdx++;
+        }
+        // Place desired item at its target position
+        finalList.push(d.id);
       });
 
-      // Build bulk operations (optimized with ordered: false for parallel execution)
-      const bulkOps = Array.from(finalOrders.entries()).map(([id, order]) => ({
+      // Append any leftover remaining items
+      while (remainingIdx < remaining.length) {
+        finalList.push(remaining[remainingIdx]._id.toString());
+        remainingIdx++;
+      }
+
+      // Assign sequential orders (1, 2, 3, ...) to all categories
+      const bulkOps = finalList.map((id, idx) => ({
         updateOne: {
           filter: { _id: new mongoose.Types.ObjectId(id), isDeleted: false },
           update: {
             $set: {
-              order: order,
+              order: idx + 1,
               updatedAt: new Date(),
             },
           },
@@ -760,55 +830,70 @@ const reorderCategories = async (req, res) => {
       });
     } else {
       // Partial reorder: only some categories are being moved
-      // Need to shift other categories to maintain sequential ordering
+      // Respect desired order values and place items at those positions, then reassign all orders sequentially
 
-      // Separate categories into reordered and unchanged
-      const reorderedCategories = [];
-      const unchangedCategories = [];
+      // Filter valid items and sort by desired order
+      const desired = items
+        .filter(
+          (item) =>
+            item &&
+            item._id &&
+            mongoose.Types.ObjectId.isValid(item._id) &&
+            typeof item.order !== "undefined"
+        )
+        .map((item) => ({
+          id: item._id.toString(),
+          order: Math.max(1, Number(item.order) || 1),
+        }))
+        .sort((a, b) => a.order - b.order);
 
-      allCategories.forEach((cat) => {
-        const catId = cat._id.toString();
-        if (newOrderMap.has(catId)) {
-          reorderedCategories.push({
-            _id: cat._id,
-            oldOrder: cat.order,
-            newOrder: newOrderMap.get(catId),
-          });
-        } else {
-          unchangedCategories.push({
-            _id: cat._id,
-            order: cat.order,
-          });
+      if (desired.length === 0) {
+        return apiResponse({
+          res,
+          statusCode: StatusCodes.BAD_REQUEST,
+          status: false,
+          message: "No valid categories found for reordering",
+          data: null,
+        });
+      }
+
+      // Build remaining list (categories not in desired list)
+      const desiredIds = new Set(desired.map((d) => d.id));
+      const remaining = allCategories.filter(
+        (cat) => !desiredIds.has(cat._id.toString())
+      );
+
+      // Reconstruct final ordered list respecting desired positions
+      const finalList = [];
+      let remainingIdx = 0;
+
+      desired.forEach((d) => {
+        const targetIdx = Math.max(0, d.order - 1); // Convert to 0-based index
+        // Fill slots up to targetIdx with remaining items
+        while (
+          finalList.length < targetIdx &&
+          remainingIdx < remaining.length
+        ) {
+          finalList.push(remaining[remainingIdx]._id.toString());
+          remainingIdx++;
         }
+        // Place desired item at its target position
+        finalList.push(d.id);
       });
 
-      // Sort reordered categories by their desired new order
-      reorderedCategories.sort((a, b) => a.newOrder - b.newOrder);
+      // Append any leftover remaining items
+      while (remainingIdx < remaining.length) {
+        finalList.push(remaining[remainingIdx]._id.toString());
+        remainingIdx++;
+      }
 
-      // Build final order assignment for all categories
-      const finalOrders = new Map();
-      let currentOrder = 1;
-
-      // Process reordered categories first (they get priority at their desired positions)
-      reorderedCategories.forEach((cat) => {
-        finalOrders.set(cat._id.toString(), currentOrder);
-        currentOrder++;
-      });
-
-      // Process unchanged categories, maintaining their relative order
-      unchangedCategories.sort((a, b) => a.order - b.order);
-      unchangedCategories.forEach((cat) => {
-        finalOrders.set(cat._id.toString(), currentOrder);
-        currentOrder++;
-      });
-
-      // Build bulk operations to update all categories (optimized with ordered: false)
-      const bulkOps = Array.from(finalOrders.entries()).map(([id, order]) => ({
+      // Assign sequential orders (1, 2, 3, ...) to all categories
+      const bulkOps = finalList.map((id, idx) => ({
         updateOne: {
           filter: { _id: new mongoose.Types.ObjectId(id), isDeleted: false },
           update: {
             $set: {
-              order: order,
+              order: idx + 1,
               updatedAt: new Date(),
             },
           },

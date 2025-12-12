@@ -1,0 +1,2329 @@
+{
+	"info": {
+		"_postman_id": "complete-admin-panel-api-collection",
+		"name": "Complete Admin Panel API Collection",
+		"description": "Complete collection of all API endpoints with proper request bodies, headers, and parameters",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+		"_exporter_id": "admin-panel"
+	},
+	"item": [
+		{
+			"name": "Auth",
+			"item": [
+				{
+					"name": "Verify Token",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}",
+								"type": "text"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/auth/verify/token",
+							"host": ["{{baseUrl}}"],
+							"path": ["auth", "verify", "token"]
+						}
+					}
+				},
+				{
+					"name": "Register by Email",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"email\": \"user@example.com\",\n  \"password\": \"Password123!\",\n  \"name\": \"John Doe\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/auth/register-by-email",
+							"host": ["{{baseUrl}}"],
+							"path": ["auth", "register-by-email"]
+						}
+					}
+				},
+				{
+					"name": "Register by Mobile",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"mobile\": \"+1234567890\",\n  \"password\": \"Password123!\",\n  \"name\": \"John Doe\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/auth/register-by-mobile",
+							"host": ["{{baseUrl}}"],
+							"path": ["auth", "register-by-mobile"]
+						}
+					}
+				},
+				{
+					"name": "Verify Email OTP",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"email\": \"user@example.com\",\n  \"otp\": \"123456\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/auth/verify-email-otp",
+							"host": ["{{baseUrl}}"],
+							"path": ["auth", "verify-email-otp"]
+						}
+					}
+				},
+				{
+					"name": "Verify Mobile OTP",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"mobile\": \"+1234567890\",\n  \"otp\": \"123456\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/auth/verify-mobile-otp",
+							"host": ["{{baseUrl}}"],
+							"path": ["auth", "verify-mobile-otp"]
+						}
+					}
+				},
+				{
+					"name": "Resend Email OTP",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"email\": \"user@example.com\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/auth/resend-email-otp",
+							"host": ["{{baseUrl}}"],
+							"path": ["auth", "resend-email-otp"]
+						}
+					}
+				},
+				{
+					"name": "Resend Mobile OTP",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"mobile\": \"+1234567890\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/auth/resend-mobile-otp",
+							"host": ["{{baseUrl}}"],
+							"path": ["auth", "resend-mobile-otp"]
+						}
+					}
+				},
+				{
+					"name": "Login by Email",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"email\": \"user@example.com\",\n  \"password\": \"Password123!\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/auth/login-by-email",
+							"host": ["{{baseUrl}}"],
+							"path": ["auth", "login-by-email"]
+						}
+					}
+				},
+				{
+					"name": "Login by Mobile",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"mobile\": \"+1234567890\",\n  \"password\": \"Password123!\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/auth/login-by-mobile",
+							"host": ["{{baseUrl}}"],
+							"path": ["auth", "login-by-mobile"]
+						}
+					}
+				},
+				{
+					"name": "Forgot Password",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"email\": \"user@example.com\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/auth/forgot-password",
+							"host": ["{{baseUrl}}"],
+							"path": ["auth", "forgot-password"]
+						}
+					}
+				},
+				{
+					"name": "Reset Password",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"email\": \"user@example.com\",\n  \"otp\": \"123456\",\n  \"newPassword\": \"NewPassword123!\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/auth/reset-password",
+							"host": ["{{baseUrl}}"],
+							"path": ["auth", "reset-password"]
+						}
+					}
+				},
+				{
+					"name": "Google Login",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"idToken\": \"google-id-token\",\n  \"email\": \"user@gmail.com\",\n  \"name\": \"John Doe\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/auth/google-login",
+							"host": ["{{baseUrl}}"],
+							"path": ["auth", "google-login"]
+						}
+					}
+				},
+				{
+					"name": "Apple Login",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"identityToken\": \"apple-identity-token\",\n  \"authorizationCode\": \"apple-auth-code\",\n  \"email\": \"user@icloud.com\",\n  \"name\": \"John Doe\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/auth/apple-login",
+							"host": ["{{baseUrl}}"],
+							"path": ["auth", "apple-login"]
+						}
+					}
+				},
+				{
+					"name": "Guest Login",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"deviceId\": \"unique-device-id\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/auth/guest-login",
+							"host": ["{{baseUrl}}"],
+							"path": ["auth", "guest-login"]
+						}
+					}
+				}
+			]
+		},
+		{
+			"name": "User",
+			"item": [
+				{
+					"name": "Get User Profile",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}",
+								"type": "text"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/user/profile",
+							"host": ["{{baseUrl}}"],
+							"path": ["user", "profile"]
+						}
+					}
+				},
+				{
+					"name": "Update User Profile",
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "formdata",
+							"formdata": [
+								{
+									"key": "name",
+									"value": "John Doe Updated",
+									"type": "text"
+								},
+								{
+									"key": "email",
+									"value": "newemail@example.com",
+									"type": "text"
+								},
+								{
+									"key": "mobile",
+									"value": "+1234567890",
+									"type": "text"
+								},
+								{
+									"key": "profileImage",
+									"type": "file",
+									"src": []
+								}
+							]
+						},
+						"url": {
+							"raw": "{{baseUrl}}/user/profile",
+							"host": ["{{baseUrl}}"],
+							"path": ["user", "profile"]
+						}
+					}
+				},
+				{
+					"name": "Change Password",
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}",
+								"type": "text"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"currentPassword\": \"OldPassword123!\",\n  \"newPassword\": \"NewPassword123!\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/user/change-password",
+							"host": ["{{baseUrl}}"],
+							"path": ["user", "change-password"]
+						}
+					}
+				},
+				{
+					"name": "Delete Account",
+					"request": {
+						"method": "DELETE",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}",
+								"type": "text"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"password\": \"Password123!\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/user/delete-account",
+							"host": ["{{baseUrl}}"],
+							"path": ["user", "delete-account"]
+						}
+					}
+				},
+				{
+					"name": "Update User Role",
+					"request": {
+						"method": "PATCH",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{adminToken}}",
+								"type": "text"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"role\": \"ADMIN\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/user/{{userId}}/role",
+							"host": ["{{baseUrl}}"],
+							"path": ["user", "{{userId}}", "role"],
+							"variable": [
+								{
+									"key": "userId",
+									"value": "YOUR_USER_ID_HERE"
+								}
+							]
+						}
+					}
+				},
+				{
+					"name": "Enable 2FA",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}",
+								"type": "text"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/user/enable-2fa",
+							"host": ["{{baseUrl}}"],
+							"path": ["user", "enable-2fa"]
+						}
+					}
+				},
+				{
+					"name": "Disable 2FA",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}",
+								"type": "text"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/user/disable-2fa",
+							"host": ["{{baseUrl}}"],
+							"path": ["user", "disable-2fa"]
+						}
+					}
+				},
+				{
+					"name": "Regenerate Recovery Code",
+					"request": {
+						"method": "PATCH",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}",
+								"type": "text"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/user/regenerate-recovery-code",
+							"host": ["{{baseUrl}}"],
+							"path": ["user", "regenerate-recovery-code"]
+						}
+					}
+				},
+				{
+					"name": "Verify 2FA OTP",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}",
+								"type": "text"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"otp\": \"123456\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/user/verify-2fa-otp",
+							"host": ["{{baseUrl}}"],
+							"path": ["user", "verify-2fa-otp"]
+						}
+					}
+				},
+				{
+					"name": "Recovery Email",
+					"request": {
+						"method": "PATCH",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}",
+								"type": "text"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"email\": \"newemail@example.com\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/user/recovery-mail",
+							"host": ["{{baseUrl}}"],
+							"path": ["user", "recovery-mail"]
+						}
+					}
+				},
+				{
+					"name": "Recovery Mobile",
+					"request": {
+						"method": "PATCH",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}",
+								"type": "text"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"mobile\": \"+1234567890\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/user/recovery-mobile",
+							"host": ["{{baseUrl}}"],
+							"path": ["user", "recovery-mobile"]
+						}
+					}
+				}
+			]
+		},
+		{
+			"name": "Categories",
+			"item": [
+				{
+					"name": "Create Category",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{adminToken}}",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "formdata",
+							"formdata": [
+								{
+									"key": "name",
+									"value": "New Category",
+									"type": "text"
+								},
+								{
+									"key": "imageCount",
+									"value": "2",
+									"type": "text"
+								},
+								{
+									"key": "isPremium",
+									"value": "false",
+									"type": "text"
+								},
+								{
+									"key": "status",
+									"value": "true",
+									"type": "text"
+								},
+								{
+									"key": "order",
+									"value": "1",
+									"type": "text"
+								},
+								{
+									"key": "prompt",
+									"value": "Category prompt text",
+									"type": "text"
+								},
+								{
+									"key": "isTrending",
+									"value": "false",
+									"type": "text"
+								},
+								{
+									"key": "isAiWorld",
+									"value": "false",
+									"type": "text"
+								},
+								{
+									"key": "img_sqr",
+									"type": "file",
+									"src": []
+								},
+								{
+									"key": "img_rec",
+									"type": "file",
+									"src": []
+								},
+								{
+									"key": "video_sqr",
+									"type": "file",
+									"src": []
+								},
+								{
+									"key": "video_rec",
+									"type": "file",
+									"src": []
+								}
+							]
+						},
+						"url": {
+							"raw": "{{baseUrl}}/categories",
+							"host": ["{{baseUrl}}"],
+							"path": ["categories"]
+						}
+					}
+				},
+				{
+					"name": "Get All Categories",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}",
+								"type": "text"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/categories?page=1&limit=10",
+							"host": ["{{baseUrl}}"],
+							"path": ["categories"],
+							"query": [
+								{
+									"key": "page",
+									"value": "1",
+									"description": "Page number"
+								},
+								{
+									"key": "limit",
+									"value": "10",
+									"description": "Items per page"
+								}
+							]
+						}
+					}
+				},
+				{
+					"name": "Get Category Titles",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/categories/titles",
+							"host": ["{{baseUrl}}"],
+							"path": ["categories", "titles"]
+						}
+					}
+				},
+				{
+					"name": "Get Category by ID",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}",
+								"type": "text"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/categories/{{categoryId}}",
+							"host": ["{{baseUrl}}"],
+							"path": ["categories", "{{categoryId}}"],
+							"variable": [
+								{
+									"key": "categoryId",
+									"value": "YOUR_CATEGORY_ID_HERE"
+								}
+							]
+						}
+					}
+				},
+				{
+					"name": "Update Category",
+					"request": {
+						"method": "PATCH",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{adminToken}}",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "formdata",
+							"formdata": [
+								{
+									"key": "name",
+									"value": "Updated Category Name",
+									"type": "text"
+								},
+								{
+									"key": "imageCount",
+									"value": "3",
+									"type": "text"
+								},
+								{
+									"key": "isPremium",
+									"value": "true",
+									"type": "text"
+								},
+								{
+									"key": "status",
+									"value": "true",
+									"type": "text"
+								},
+								{
+									"key": "prompt",
+									"value": "Updated prompt",
+									"type": "text"
+								},
+								{
+									"key": "img_sqr",
+									"type": "file",
+									"src": []
+								}
+							]
+						},
+						"url": {
+							"raw": "{{baseUrl}}/categories/{{categoryId}}",
+							"host": ["{{baseUrl}}"],
+							"path": ["categories", "{{categoryId}}"],
+							"variable": [
+								{
+									"key": "categoryId",
+									"value": "YOUR_CATEGORY_ID_HERE"
+								}
+							]
+						}
+					}
+				},
+				{
+					"name": "Delete Category",
+					"request": {
+						"method": "DELETE",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{adminToken}}",
+								"type": "text"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/categories/{{categoryId}}",
+							"host": ["{{baseUrl}}"],
+							"path": ["categories", "{{categoryId}}"],
+							"variable": [
+								{
+									"key": "categoryId",
+									"value": "YOUR_CATEGORY_ID_HERE"
+								}
+							]
+						}
+					}
+				},
+				{
+					"name": "Toggle Category Status",
+					"request": {
+						"method": "PATCH",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{adminToken}}",
+								"type": "text"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"status\": true\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/categories/{{categoryId}}/status",
+							"host": ["{{baseUrl}}"],
+							"path": ["categories", "{{categoryId}}", "status"],
+							"variable": [
+								{
+									"key": "categoryId",
+									"value": "YOUR_CATEGORY_ID_HERE"
+								}
+							]
+						}
+					}
+				},
+				{
+					"name": "Toggle Category Premium",
+					"request": {
+						"method": "PATCH",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{adminToken}}",
+								"type": "text"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"isPremium\": true\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/categories/{{categoryId}}/premium",
+							"host": ["{{baseUrl}}"],
+							"path": ["categories", "{{categoryId}}", "premium"],
+							"variable": [
+								{
+									"key": "categoryId",
+									"value": "YOUR_CATEGORY_ID_HERE"
+								}
+							]
+						}
+					}
+				},
+				{
+					"name": "Reorder Categories",
+					"request": {
+						"method": "PATCH",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{adminToken}}",
+								"type": "text"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"categories\": [\n    {\n      \"_id\": \"categoryId1\",\n      \"order\": 1\n    },\n    {\n      \"_id\": \"categoryId2\",\n      \"order\": 2\n    },\n    {\n      \"_id\": \"categoryId3\",\n      \"order\": 3\n    }\n  ]\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/categories/reorder",
+							"host": ["{{baseUrl}}"],
+							"path": ["categories", "reorder"]
+						}
+					}
+				}
+			]
+		},
+		{
+			"name": "Subcategories",
+			"item": [
+				{
+					"name": "Create Subcategory",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{adminToken}}",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "formdata",
+							"formdata": [
+								{
+									"key": "categoryId",
+									"value": "YOUR_CATEGORY_ID_HERE",
+									"type": "text"
+								},
+								{
+									"key": "subcategoryTitle",
+									"value": "New Subcategory",
+									"type": "text"
+								},
+								{
+									"key": "imageCount",
+									"value": "1",
+									"type": "text"
+								},
+								{
+									"key": "isPremium",
+									"value": "false",
+									"type": "text"
+								},
+								{
+									"key": "status",
+									"value": "true",
+									"type": "text"
+								},
+								{
+									"key": "order",
+									"value": "1",
+									"type": "text"
+								},
+								{
+									"key": "img_sqr",
+									"type": "file",
+									"src": []
+								},
+								{
+									"key": "img_rec",
+									"type": "file",
+									"src": []
+								},
+								{
+									"key": "video_sqr",
+									"type": "file",
+									"src": []
+								},
+								{
+									"key": "video_rec",
+									"type": "file",
+									"src": []
+								},
+								{
+									"key": "asset_images",
+									"type": "file",
+									"src": [],
+									"description": "Multiple asset images"
+								}
+							]
+						},
+						"url": {
+							"raw": "{{baseUrl}}/subcategory",
+							"host": ["{{baseUrl}}"],
+							"path": ["subcategory"]
+						}
+					}
+				},
+				{
+					"name": "Get All Subcategories",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{adminToken}}",
+								"type": "text"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/subcategory?page=1&limit=50",
+							"host": ["{{baseUrl}}"],
+							"path": ["subcategory"],
+							"query": [
+								{
+									"key": "page",
+									"value": "1"
+								},
+								{
+									"key": "limit",
+									"value": "50"
+								}
+							]
+						}
+					}
+				},
+				{
+					"name": "Get Subcategory Titles",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/subcategory/titles",
+							"host": ["{{baseUrl}}"],
+							"path": ["subcategory", "titles"]
+						}
+					}
+				},
+				{
+					"name": "Get Subcategory by ID",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/subcategory/{{subcategoryId}}",
+							"host": ["{{baseUrl}}"],
+							"path": ["subcategory", "{{subcategoryId}}"],
+							"variable": [
+								{
+									"key": "subcategoryId",
+									"value": "YOUR_SUBCATEGORY_ID_HERE"
+								}
+							]
+						}
+					}
+				},
+				{
+					"name": "Get Subcategory Assets",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/subcategory/{{subcategoryId}}/assets",
+							"host": ["{{baseUrl}}"],
+							"path": ["subcategory", "{{subcategoryId}}", "assets"],
+							"variable": [
+								{
+									"key": "subcategoryId",
+									"value": "YOUR_SUBCATEGORY_ID_HERE"
+								}
+							]
+						}
+					}
+				},
+				{
+					"name": "Update Subcategory",
+					"request": {
+						"method": "PATCH",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{adminToken}}",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "formdata",
+							"formdata": [
+								{
+									"key": "subcategoryTitle",
+									"value": "Updated Subcategory Title",
+									"type": "text"
+								},
+								{
+									"key": "imageCount",
+									"value": "2",
+									"type": "text"
+								},
+								{
+									"key": "isPremium",
+									"value": "true",
+									"type": "text"
+								},
+								{
+									"key": "status",
+									"value": "true",
+									"type": "text"
+								},
+								{
+									"key": "img_sqr",
+									"type": "file",
+									"src": []
+								}
+							]
+						},
+						"url": {
+							"raw": "{{baseUrl}}/subcategory/update/{{subcategoryId}}",
+							"host": ["{{baseUrl}}"],
+							"path": ["subcategory", "update", "{{subcategoryId}}"],
+							"variable": [
+								{
+									"key": "subcategoryId",
+									"value": "YOUR_SUBCATEGORY_ID_HERE"
+								}
+							]
+						}
+					}
+				},
+				{
+					"name": "Delete Subcategory",
+					"request": {
+						"method": "DELETE",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{adminToken}}",
+								"type": "text"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/subcategory/{{subcategoryId}}",
+							"host": ["{{baseUrl}}"],
+							"path": ["subcategory", "{{subcategoryId}}"],
+							"variable": [
+								{
+									"key": "subcategoryId",
+									"value": "YOUR_SUBCATEGORY_ID_HERE"
+								}
+							]
+						}
+					}
+				},
+				{
+					"name": "Toggle Subcategory Status",
+					"request": {
+						"method": "PATCH",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{adminToken}}",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "formdata",
+							"formdata": [
+								{
+									"key": "status",
+									"value": "true",
+									"type": "text"
+								}
+							]
+						},
+						"url": {
+							"raw": "{{baseUrl}}/subcategory/{{subcategoryId}}/status",
+							"host": ["{{baseUrl}}"],
+							"path": ["subcategory", "{{subcategoryId}}", "status"],
+							"variable": [
+								{
+									"key": "subcategoryId",
+									"value": "YOUR_SUBCATEGORY_ID_HERE"
+								}
+							]
+						}
+					}
+				},
+				{
+					"name": "Toggle Subcategory Premium",
+					"request": {
+						"method": "PATCH",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{adminToken}}",
+								"type": "text"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"isPremium\": true\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/subcategory/{{subcategoryId}}/premium",
+							"host": ["{{baseUrl}}"],
+							"path": ["subcategory", "{{subcategoryId}}", "premium"],
+							"variable": [
+								{
+									"key": "subcategoryId",
+									"value": "YOUR_SUBCATEGORY_ID_HERE"
+								}
+							]
+						}
+					}
+				},
+				{
+					"name": "Reorder Subcategories",
+					"request": {
+						"method": "PATCH",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{adminToken}}",
+								"type": "text"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "[\n  {\n    \"id\": \"subcategoryId1\",\n    \"order\": 1\n  },\n  {\n    \"id\": \"subcategoryId2\",\n    \"order\": 2\n  },\n  {\n    \"id\": \"subcategoryId3\",\n    \"order\": 3\n  }\n]"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/subcategory/update-order",
+							"host": ["{{baseUrl}}"],
+							"path": ["subcategory", "update-order"]
+						}
+					}
+				},
+				{
+					"name": "Upload Asset Images",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{adminToken}}",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "formdata",
+							"formdata": [
+								{
+									"key": "asset_images",
+									"type": "file",
+									"src": [],
+									"description": "Multiple asset images"
+								}
+							]
+						},
+						"url": {
+							"raw": "{{baseUrl}}/subcategory/{{subcategoryId}}/assets",
+							"host": ["{{baseUrl}}"],
+							"path": ["subcategory", "{{subcategoryId}}", "assets"],
+							"variable": [
+								{
+									"key": "subcategoryId",
+									"value": "YOUR_SUBCATEGORY_ID_HERE"
+								}
+							]
+						}
+					}
+				},
+				{
+					"name": "Manage Subcategory Assets",
+					"request": {
+						"method": "PATCH",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{adminToken}}",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "formdata",
+							"formdata": [
+								{
+									"key": "addUrl",
+									"value": "https://example.com/image.jpg",
+									"type": "text",
+									"description": "Add asset by URL"
+								},
+								{
+									"key": "removeUrl",
+									"value": "https://example.com/old-image.jpg",
+									"type": "text",
+									"description": "Remove asset by URL"
+								},
+								{
+									"key": "asset_images",
+									"type": "file",
+									"src": [],
+									"description": "Upload new asset files"
+								}
+							]
+						},
+						"url": {
+							"raw": "{{baseUrl}}/subcategory/{{subcategoryId}}/assets",
+							"host": ["{{baseUrl}}"],
+							"path": ["subcategory", "{{subcategoryId}}", "assets"],
+							"variable": [
+								{
+									"key": "subcategoryId",
+									"value": "YOUR_SUBCATEGORY_ID_HERE"
+								}
+							]
+						}
+					}
+				},
+				{
+					"name": "Delete Asset Image",
+					"request": {
+						"method": "DELETE",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{adminToken}}",
+								"type": "text"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/subcategory/{{subcategoryId}}/assets/delete?assetId={{assetId}}",
+							"host": ["{{baseUrl}}"],
+							"path": ["subcategory", "{{subcategoryId}}", "assets", "delete"],
+							"query": [
+								{
+									"key": "assetId",
+									"value": "{{assetId}}",
+									"description": "Asset ID to delete"
+								},
+								{
+									"key": "url",
+									"value": "",
+									"description": "Alternative: Asset URL to delete",
+									"disabled": true
+								}
+							],
+							"variable": [
+								{
+									"key": "subcategoryId",
+									"value": "YOUR_SUBCATEGORY_ID_HERE"
+								},
+								{
+									"key": "assetId",
+									"value": "YOUR_ASSET_ID_HERE"
+								}
+							]
+						}
+					}
+				},
+				{
+					"name": "Update Asset Premium & Image Count",
+					"request": {
+						"method": "PATCH",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{adminToken}}",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "formdata",
+							"formdata": [
+								{
+									"key": "assetId",
+									"value": "YOUR_ASSET_ID_HERE",
+									"type": "text",
+									"description": "Asset ID (or use url)"
+								},
+								{
+									"key": "isPremium",
+									"value": "true",
+									"type": "text"
+								},
+								{
+									"key": "imageCount",
+									"value": "3",
+									"type": "text"
+								}
+							]
+						},
+						"url": {
+							"raw": "{{baseUrl}}/subcategory/{{subcategoryId}}/assets/premium",
+							"host": ["{{baseUrl}}"],
+							"path": ["subcategory", "{{subcategoryId}}", "assets", "premium"],
+							"variable": [
+								{
+									"key": "subcategoryId",
+									"value": "YOUR_SUBCATEGORY_ID_HERE"
+								}
+							]
+						}
+					}
+				}
+			]
+		},
+		{
+			"name": "Trending",
+			"item": [
+				{
+					"name": "Get All Categories for Trending",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{adminToken}}",
+								"type": "text"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/categories/trending?page=1&limit=10",
+							"host": ["{{baseUrl}}"],
+							"path": ["categories", "trending"],
+							"query": [
+								{
+									"key": "page",
+									"value": "1"
+								},
+								{
+									"key": "limit",
+									"value": "10"
+								}
+							]
+						}
+					}
+				},
+				{
+					"name": "Get Trending Categories (Public)",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/categories/trending/list",
+							"host": ["{{baseUrl}}"],
+							"path": ["categories", "trending", "list"]
+						}
+					}
+				},
+				{
+					"name": "Reorder Trending Categories",
+					"request": {
+						"method": "PATCH",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{adminToken}}",
+								"type": "text"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"categories\": [\n    {\n      \"_id\": \"categoryId1\",\n      \"trendingOrder\": 1\n    },\n    {\n      \"_id\": \"categoryId2\",\n      \"trendingOrder\": 2\n    }\n  ]\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/categories/trending/reorder",
+							"host": ["{{baseUrl}}"],
+							"path": ["categories", "trending", "reorder"]
+						}
+					}
+				},
+				{
+					"name": "Toggle Category Trending Status",
+					"request": {
+						"method": "PATCH",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{adminToken}}",
+								"type": "text"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"isTrending\": true\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/categories/trending/toggle-trending/{{categoryId}}",
+							"host": ["{{baseUrl}}"],
+							"path": ["categories", "trending", "toggle-trending", "{{categoryId}}"],
+							"variable": [
+								{
+									"key": "categoryId",
+									"value": "YOUR_CATEGORY_ID_HERE"
+								}
+							]
+						}
+					}
+				}
+			]
+		},
+		{
+			"name": "AI World",
+			"item": [
+				{
+					"name": "Get All Categories for AI World",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{adminToken}}",
+								"type": "text"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/categories/ai-world?page=1&limit=10",
+							"host": ["{{baseUrl}}"],
+							"path": ["categories", "ai-world"],
+							"query": [
+								{
+									"key": "page",
+									"value": "1"
+								},
+								{
+									"key": "limit",
+									"value": "10"
+								}
+							]
+						}
+					}
+				},
+				{
+					"name": "Get AI World Categories (Public)",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/categories/ai-world/list",
+							"host": ["{{baseUrl}}"],
+							"path": ["categories", "ai-world", "list"]
+						}
+					}
+				},
+				{
+					"name": "Reorder AI World Categories",
+					"request": {
+						"method": "PATCH",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{adminToken}}",
+								"type": "text"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"categories\": [\n    {\n      \"_id\": \"categoryId1\",\n      \"aiWorldOrder\": 1\n    },\n    {\n      \"_id\": \"categoryId2\",\n      \"aiWorldOrder\": 2\n    }\n  ]\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/categories/ai-world/reorder",
+							"host": ["{{baseUrl}}"],
+							"path": ["categories", "ai-world", "reorder"]
+						}
+					}
+				},
+				{
+					"name": "Toggle Category AI World Status",
+					"request": {
+						"method": "PATCH",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{adminToken}}",
+								"type": "text"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"isAiWorld\": true\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/categories/ai-world/toggle-ai-world/{{categoryId}}",
+							"host": ["{{baseUrl}}"],
+							"path": ["categories", "ai-world", "toggle-ai-world", "{{categoryId}}"],
+							"variable": [
+								{
+									"key": "categoryId",
+									"value": "YOUR_CATEGORY_ID_HERE"
+								}
+							]
+						}
+					}
+				}
+			]
+		},
+		{
+			"name": "AI Photo",
+			"item": [
+				{
+					"name": "Get All Subcategories for AI Photo",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}",
+								"type": "text"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/aiphoto",
+							"host": ["{{baseUrl}}"],
+							"path": ["aiphoto"]
+						}
+					}
+				},
+				{
+					"name": "Get AI Photo Subcategories (Public)",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/aiphoto/list",
+							"host": ["{{baseUrl}}"],
+							"path": ["aiphoto", "list"]
+						}
+					}
+				},
+				{
+					"name": "Reorder AI Photo Subcategories",
+					"request": {
+						"method": "PATCH",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{adminToken}}",
+								"type": "text"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"subcategories\": [\n    {\n      \"_id\": \"subcategoryId1\",\n      \"aiPhotoOrder\": 1\n    },\n    {\n      \"_id\": \"subcategoryId2\",\n      \"aiPhotoOrder\": 2\n    }\n  ]\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/aiphoto/reorder",
+							"host": ["{{baseUrl}}"],
+							"path": ["aiphoto", "reorder"]
+						}
+					}
+				},
+				{
+					"name": "Toggle Subcategory AI Photo Status",
+					"request": {
+						"method": "PATCH",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{adminToken}}",
+								"type": "text"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"isAiPhoto\": true\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/aiphoto/{{subcategoryId}}/toggle",
+							"host": ["{{baseUrl}}"],
+							"path": ["aiphoto", "{{subcategoryId}}", "toggle"],
+							"variable": [
+								{
+									"key": "subcategoryId",
+									"value": "YOUR_SUBCATEGORY_ID_HERE"
+								}
+							]
+						}
+					}
+				}
+			]
+		},
+		{
+			"name": "Home",
+			"item": [
+				{
+					"name": "Get Home Data (Public)",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/home",
+							"host": ["{{baseUrl}}"],
+							"path": ["home"]
+						}
+					}
+				},
+				{
+					"name": "Get All Sections Data (Admin)",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{adminToken}}",
+								"type": "text"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/home/sections/all",
+							"host": ["{{baseUrl}}"],
+							"path": ["home", "sections", "all"]
+						}
+					}
+				},
+				{
+					"name": "Get Section 1 Categories",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{adminToken}}",
+								"type": "text"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/home/section1/all",
+							"host": ["{{baseUrl}}"],
+							"path": ["home", "section1", "all"]
+						}
+					}
+				},
+				{
+					"name": "Get Section 2 Categories",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{adminToken}}",
+								"type": "text"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/home/section2/all",
+							"host": ["{{baseUrl}}"],
+							"path": ["home", "section2", "all"]
+						}
+					}
+				},
+				{
+					"name": "Get Section 3 Subcategories",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{adminToken}}",
+								"type": "text"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/home/section3/all",
+							"host": ["{{baseUrl}}"],
+							"path": ["home", "section3", "all"]
+						}
+					}
+				},
+				{
+					"name": "Get Section 4 Subcategories",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{adminToken}}",
+								"type": "text"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/home/section4/all",
+							"host": ["{{baseUrl}}"],
+							"path": ["home", "section4", "all"]
+						}
+					}
+				},
+				{
+					"name": "Get Section 5 Subcategories",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{adminToken}}",
+								"type": "text"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/home/section5/all",
+							"host": ["{{baseUrl}}"],
+							"path": ["home", "section5", "all"]
+						}
+					}
+				},
+				{
+					"name": "Get Section 6 Categories",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{adminToken}}",
+								"type": "text"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/home/section6/all",
+							"host": ["{{baseUrl}}"],
+							"path": ["home", "section6", "all"]
+						}
+					}
+				},
+				{
+					"name": "Get Section 7 Categories",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{adminToken}}",
+								"type": "text"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/home/section7/all",
+							"host": ["{{baseUrl}}"],
+							"path": ["home", "section7", "all"]
+						}
+					}
+				},
+				{
+					"name": "Reorder Section 1 Categories",
+					"request": {
+						"method": "PATCH",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{adminToken}}",
+								"type": "text"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"categories\": [\n    {\n      \"_id\": \"categoryId1\",\n      \"section1Order\": 1\n    },\n    {\n      \"_id\": \"categoryId2\",\n      \"section1Order\": 2\n    }\n  ]\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/home/section1/reorder",
+							"host": ["{{baseUrl}}"],
+							"path": ["home", "section1", "reorder"]
+						}
+					}
+				},
+				{
+					"name": "Toggle Section 1 Category",
+					"request": {
+						"method": "PATCH",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{adminToken}}",
+								"type": "text"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/home/section1/{{categoryId}}",
+							"host": ["{{baseUrl}}"],
+							"path": ["home", "section1", "{{categoryId}}"],
+							"variable": [
+								{
+									"key": "categoryId",
+									"value": "YOUR_CATEGORY_ID_HERE"
+								}
+							]
+						}
+					}
+				},
+				{
+					"name": "Toggle Section 3 Subcategory",
+					"request": {
+						"method": "PATCH",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{adminToken}}",
+								"type": "text"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/home/section3/{{subcategoryId}}",
+							"host": ["{{baseUrl}}"],
+							"path": ["home", "section3", "{{subcategoryId}}"],
+							"variable": [
+								{
+									"key": "subcategoryId",
+									"value": "YOUR_SUBCATEGORY_ID_HERE"
+								}
+							]
+						}
+					}
+				},
+				{
+					"name": "Bulk Toggle Category Sections",
+					"request": {
+						"method": "PATCH",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{adminToken}}",
+								"type": "text"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"categoryId\": \"categoryId1\",\n  \"sections\": [1, 2, 6, 7],\n  \"status\": true\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/home/categories/toggle",
+							"host": ["{{baseUrl}}"],
+							"path": ["home", "categories", "toggle"]
+						}
+					}
+				},
+				{
+					"name": "Bulk Toggle Subcategory Sections",
+					"request": {
+						"method": "PATCH",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{adminToken}}",
+								"type": "text"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"subcategoryId\": \"subcategoryId1\",\n  \"sections\": [3, 4, 5],\n  \"status\": true\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/home/subcategories/toggle",
+							"host": ["{{baseUrl}}"],
+							"path": ["home", "subcategories", "toggle"]
+						}
+					}
+				},
+				{
+					"name": "Bulk Reorder Category Sections",
+					"request": {
+						"method": "PATCH",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{adminToken}}",
+								"type": "text"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"section\": 1,\n  \"categories\": [\n    {\n      \"_id\": \"categoryId1\",\n      \"section1Order\": 1\n    },\n    {\n      \"_id\": \"categoryId2\",\n      \"section1Order\": 2\n    }\n  ]\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/home/categories/reorder",
+							"host": ["{{baseUrl}}"],
+							"path": ["home", "categories", "reorder"]
+						}
+					}
+				},
+				{
+					"name": "Bulk Reorder Subcategory Sections",
+					"request": {
+						"method": "PATCH",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{adminToken}}",
+								"type": "text"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"section\": 3,\n  \"subcategories\": [\n    {\n      \"_id\": \"subcategoryId1\",\n      \"section3Order\": 1\n    },\n    {\n      \"_id\": \"subcategoryId2\",\n      \"section3Order\": 2\n    }\n  ]\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/home/subcategories/reorder",
+							"host": ["{{baseUrl}}"],
+							"path": ["home", "subcategories", "reorder"]
+						}
+					}
+				}
+			]
+		},
+		{
+			"name": "Feedback",
+			"item": [
+				{
+					"name": "Create Feedback",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "formdata",
+							"formdata": [
+								{
+									"key": "subject",
+									"value": "Feedback Subject",
+									"type": "text"
+								},
+								{
+									"key": "message",
+									"value": "Feedback message content",
+									"type": "text"
+								},
+								{
+									"key": "attachments",
+									"type": "file",
+									"src": [],
+									"description": "Multiple attachments (max 10)"
+								}
+							]
+						},
+						"url": {
+							"raw": "{{baseUrl}}/feedback",
+							"host": ["{{baseUrl}}"],
+							"path": ["feedback"]
+						}
+					}
+				},
+				{
+					"name": "Get Feedback List",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{adminToken}}",
+								"type": "text"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/feedback?page=1&limit=10",
+							"host": ["{{baseUrl}}"],
+							"path": ["feedback"],
+							"query": [
+								{
+									"key": "page",
+									"value": "1"
+								},
+								{
+									"key": "limit",
+									"value": "10"
+								},
+								{
+									"key": "id",
+									"value": "",
+									"description": "Optional: Get single feedback by ID",
+									"disabled": true
+								}
+							]
+						}
+					}
+				},
+				{
+					"name": "Delete Feedback",
+					"request": {
+						"method": "DELETE",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{adminToken}}",
+								"type": "text"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/feedback/{{feedbackId}}",
+							"host": ["{{baseUrl}}"],
+							"path": ["feedback", "{{feedbackId}}"],
+							"variable": [
+								{
+									"key": "feedbackId",
+									"value": "YOUR_FEEDBACK_ID_HERE"
+								}
+							]
+						}
+					}
+				}
+			]
+		},
+		{
+			"name": "Uninstall",
+			"item": [
+				{
+					"name": "Create Uninstall",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}",
+								"type": "text"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"reason\": \"Not useful\",\n  \"feedback\": \"Optional feedback text\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/uninstall",
+							"host": ["{{baseUrl}}"],
+							"path": ["uninstall"]
+						}
+					}
+				},
+				{
+					"name": "Get Uninstall Data",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{adminToken}}",
+								"type": "text"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/uninstall",
+							"host": ["{{baseUrl}}"],
+							"path": ["uninstall"]
+						}
+					}
+				},
+				{
+					"name": "Delete Uninstall",
+					"request": {
+						"method": "DELETE",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{adminToken}}",
+								"type": "text"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/uninstall/{{uninstallId}}",
+							"host": ["{{baseUrl}}"],
+							"path": ["uninstall", "{{uninstallId}}"],
+							"variable": [
+								{
+									"key": "uninstallId",
+									"value": "YOUR_UNINSTALL_ID_HERE"
+								}
+							]
+						}
+					}
+				}
+			]
+		}
+	],
+	"variable": [
+		{
+			"key": "baseUrl",
+			"value": "http://localhost:3000/api/v1",
+			"type": "string"
+		},
+		{
+			"key": "token",
+			"value": "YOUR_USER_TOKEN_HERE",
+			"type": "string"
+		},
+		{
+			"key": "adminToken",
+			"value": "YOUR_ADMIN_TOKEN_HERE",
+			"type": "string"
+		},
+		{
+			"key": "categoryId",
+			"value": "YOUR_CATEGORY_ID_HERE",
+			"type": "string"
+		},
+		{
+			"key": "subcategoryId",
+			"value": "YOUR_SUBCATEGORY_ID_HERE",
+			"type": "string"
+		},
+		{
+			"key": "assetId",
+			"value": "YOUR_ASSET_ID_HERE",
+			"type": "string"
+		},
+		{
+			"key": "userId",
+			"value": "YOUR_USER_ID_HERE",
+			"type": "string"
+		},
+		{
+			"key": "feedbackId",
+			"value": "YOUR_FEEDBACK_ID_HERE",
+			"type": "string"
+		},
+		{
+			"key": "uninstallId",
+			"value": "YOUR_UNINSTALL_ID_HERE",
+			"type": "string"
+		}
+	]
+}
+

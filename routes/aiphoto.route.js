@@ -16,7 +16,7 @@ router.get("/", verifyToken, aiPhotoController.getAllSubcategoriesForAiPhoto);
  * GET /api/aiphoto/list
  * Get AI Photo subcategories (Client side - sorted by aiPhotoOrder)
  */
-router.get("/list", aiPhotoController.getAiPhotoSubcategories);
+router.get("/list", verifyToken, aiPhotoController.getAiPhotoSubcategories);
 
 /**
  * PATCH /api/aiphoto/reorder

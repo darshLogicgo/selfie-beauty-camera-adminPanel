@@ -25,16 +25,45 @@ const createCategoryValidation = {
       // Premium field
       isPremium: Joi.boolean().optional().default(false),
 
-      // Select Image count field
-      selectImage: Joi.number()
-        .integer()
-        .min(1)
+      // Select Image count field - accept both camelCase and lowercase for form-data compatibility
+      imageCount: Joi.alternatives()
+        .try(
+          Joi.number().integer().min(1),
+          Joi.string()
+            .pattern(/^\d+$/)
+            .custom((value, helpers) => {
+              const num = Number(value);
+              if (num >= 1 && Number.isInteger(num)) return num;
+              return helpers.error("number.min");
+            })
+        )
         .optional()
-        .default(1)
         .messages({
-          "number.base": "Select image count must be a number",
-          "number.integer": "Select image count must be an integer",
-          "number.min": "Select image count must be at least 1",
+          "number.base": "imageCount must be a number",
+          "number.integer": "imageCount must be an integer",
+          "number.min": "imageCount must be at least 1",
+          "string.pattern.base": "imageCount must be a valid number",
+          "any.custom": "imageCount must be at least 1",
+        }),
+      // Also accept lowercase variant for form-data compatibility
+      imagecount: Joi.alternatives()
+        .try(
+          Joi.number().integer().min(1),
+          Joi.string()
+            .pattern(/^\d+$/)
+            .custom((value, helpers) => {
+              const num = Number(value);
+              if (num >= 1 && Number.isInteger(num)) return num;
+              return helpers.error("number.min");
+            })
+        )
+        .optional()
+        .messages({
+          "number.base": "imagecount must be a number",
+          "number.integer": "imagecount must be an integer",
+          "number.min": "imagecount must be at least 1",
+          "string.pattern.base": "imagecount must be a valid number",
+          "any.custom": "imagecount must be at least 1",
         }),
 
       // Prompt field
@@ -72,7 +101,7 @@ const updateCategoryValidation = {
       isPremium: Joi.boolean().optional(),
 
       // Select Image count field
-      selectImage: Joi.number().integer().min(1).optional().messages({
+      imageCount: Joi.number().integer().min(1).optional().messages({
         "number.base": "Select image count must be a number",
         "number.integer": "Select image count must be an integer",
         "number.min": "Select image count must be at least 1",

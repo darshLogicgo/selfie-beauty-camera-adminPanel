@@ -9,9 +9,9 @@ const route = express.Router();
 
 /**
  * GET /api/v1/home
- * Get home page data with 7 sections (Client side - Public)
+ * Get home page data with 7 sections (Client side - Authenticated)
  */
-route.get("/", homeController.getHomeData);
+route.get("/", verifyToken, homeController.getHomeData);
 
 /**
  * GET /api/v1/home/sections/all
@@ -23,6 +23,30 @@ route.get(
   verifyToken,
   verifyRole([enums.userRoleEnum.ADMIN]),
   homeController.getAllSectionsData
+);
+
+/**
+ * GET /api/v1/home/settings
+ * Get home settings (Admin only)
+ * Returns current section titles for Section 6 and Section 7
+ */
+route.get(
+  "/settings",
+  verifyToken,
+  verifyRole([enums.userRoleEnum.ADMIN]),
+  homeController.getHomeSettings
+);
+
+/**
+ * PATCH /api/v1/home/settings
+ * Update home settings (Admin only)
+ * Updates section titles for Section 6 and Section 7
+ */
+route.patch(
+  "/settings",
+  verifyToken,
+  verifyRole([enums.userRoleEnum.ADMIN]),
+  homeController.updateHomeSettings
 );
 
 /**

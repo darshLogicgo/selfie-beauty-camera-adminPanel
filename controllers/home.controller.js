@@ -1,6 +1,8 @@
 import { StatusCodes } from "http-status-codes";
 import Category from "../models/category.model.js";
 import Subcategory from "../models/Subcategory.js";
+import HomeSettings from "../models/homeSettings.model.js";
+import MediaClick from "../models/media_click.model.js";
 import categoryService from "../services/category.service.js";
 import { apiResponse } from "../helper/api-response.helper.js";
 import mongoose from "mongoose";
@@ -13,6 +15,55 @@ import mongoose from "mongoose";
  */
 export const getHomeData = async (req, res) => {
   try {
+    // Get home settings for section titles
+    const homeSettings = await HomeSettings.getSettings();
+
+    // Check if user is logged in and not a guest
+    const userId = req.user?._id || req.user?.id;
+    const isGuest = req.user?.isDemo === true;
+    let userClickData = null;
+    let userClickedCategoryIds = new Set();
+
+    // Fetch user click data if user is logged in and not a guest
+    if (userId && !isGuest) {
+      try {
+        userClickData = await MediaClick.findOne({ userId }).lean();
+        if (userClickData && userClickData.categories) {
+          userClickData.categories.forEach((cat) => {
+            if (cat.categoryId) {
+              userClickedCategoryIds.add(cat.categoryId.toString());
+            }
+          });
+        }
+      } catch (error) {
+        console.error("Error fetching user click data:", error);
+        // Continue with default behavior if error occurs
+      }
+    }
+
+    // Build Section 1 query - include categories user clicked even if isSection1 is false
+    const section1Query = {
+      isDeleted: false,
+      status: true,
+    };
+
+    // If user has clicked categories, include them even if isSection1 is false
+    if (userClickedCategoryIds.size > 0) {
+      section1Query.$or = [
+        { isSection1: true },
+        {
+          _id: {
+            $in: Array.from(userClickedCategoryIds).map(
+              (id) => new mongoose.Types.ObjectId(id)
+            ),
+          },
+        },
+      ];
+    } else {
+      // Default: only show categories with isSection1: true
+      section1Query.isSection1 = true;
+    }
+
     // Parallel queries for all sections (optimized)
     const [
       section1Categories,
@@ -24,11 +75,7 @@ export const getHomeData = async (req, res) => {
       section7Categories,
     ] = await Promise.all([
       // Section 1: Featured Categories
-      Category.find({
-        isDeleted: false,
-        status: true,
-        isSection1: true,
-      })
+      Category.find(section1Query)
         .select({
           name: 1,
           img_sqr: 1,
@@ -40,6 +87,8 @@ export const getHomeData = async (req, res) => {
           isPremium: 1,
           selectImage: 1,
           prompt: 1,
+          section1Order: 1,
+          isSection1: 1,
           createdAt: 1,
           updatedAt: 1,
         })
@@ -192,11 +241,71 @@ export const getHomeData = async (req, res) => {
         .hint({ isDeleted: 1, status: 1, isSection7: 1, section7Order: 1 }),
     ]);
 
+    // Sort Section 1 categories based on user click data
+    let sortedSection1Categories = section1Categories;
+
+    // If user is logged in, not a guest, and has click data, sort by click count
+    if (
+      userId &&
+      !isGuest &&
+      userClickData &&
+      userClickData.categories &&
+      userClickData.categories.length > 0
+    ) {
+      // Create a map of categoryId to click_count for quick lookup
+      const clickCountMap = new Map();
+      userClickData.categories.forEach((cat) => {
+        if (cat.categoryId) {
+          clickCountMap.set(cat.categoryId.toString(), cat.click_count || 0);
+        }
+      });
+
+      // Sort categories:
+      // 1. First by click_count (descending - highest first)
+      // 2. If click_count is same, user-clicked categories first, then by section1Order
+      sortedSection1Categories = [...section1Categories].sort((a, b) => {
+        const aId = a._id.toString();
+        const bId = b._id.toString();
+        const aClickCount = clickCountMap.get(aId) || 0;
+        const bClickCount = clickCountMap.get(bId) || 0;
+        const aIsClicked = clickCountMap.has(aId);
+        const bIsClicked = clickCountMap.has(bId);
+
+        // Primary sort: by click count (descending - highest first)
+        if (aClickCount !== bClickCount) {
+          return bClickCount - aClickCount;
+        }
+
+        // Secondary sort: if same click count, user-clicked categories first
+        // If a is clicked and b is not, a comes first (return -1)
+        // If b is clicked and a is not, b comes first (return 1)
+        if (aIsClicked && !bIsClicked) {
+          return -1;
+        }
+        if (!aIsClicked && bIsClicked) {
+          return 1;
+        }
+
+        // Tertiary sort: if both clicked or both not clicked, use section1Order
+        const aOrder = a.section1Order || 999999;
+        const bOrder = b.section1Order || 999999;
+        if (aOrder !== bOrder) {
+          return aOrder - bOrder;
+        }
+
+        // Final sort: by createdAt for consistency
+        return new Date(a.createdAt) - new Date(b.createdAt);
+      });
+    } else {
+      // Default sorting: by section1Order (already sorted from query)
+      sortedSection1Categories = section1Categories;
+    }
+
     // Build response with 7 sections (all with title structure)
     const responseData = {
       section1: {
         title: "image",
-        categories: section1Categories, // Featured Categories
+        categories: sortedSection1Categories, // Featured Categories (sorted by click count if user has data)
       },
       section2: {
         title: "AI Face Swap",
@@ -215,11 +324,11 @@ export const getHomeData = async (req, res) => {
         subcategories: section5Subcategories, // Subcategories
       },
       section6: {
-        title: "Enhancer Tools",
+        title: homeSettings.section6Title || "Enhance Tools",
         categories: section6Categories, // Enhance Tools
       },
       section7: {
-        title: "AI Tools",
+        title: homeSettings.section7Title || "AI Tools",
         categories: section7Categories, // AI Tools
       },
     };
@@ -250,6 +359,9 @@ export const getHomeData = async (req, res) => {
  */
 const getAllSectionsData = async (req, res) => {
   try {
+    // Get home settings for section titles
+    const homeSettings = await HomeSettings.getSettings();
+
     // Parallel queries for all sections (optimized) - no pagination, return all
     const [
       section1Categories,
@@ -492,11 +604,11 @@ const getAllSectionsData = async (req, res) => {
       section4: section4Subcategories, // Array directly (like public API)
       section5: section5Subcategories, // Array directly (like public API)
       section6: {
-        title: "Enhance Tools",
+        title: homeSettings.section6Title || "Enhance Tools",
         categories: section6Categories, // Object with title and categories (like public API)
       },
       section7: {
-        title: "AI Tools",
+        title: homeSettings.section7Title || "AI Tools",
         categories: section7Categories, // Object with title and categories (like public API)
       },
     };
@@ -2357,6 +2469,94 @@ const bulkReorderSubcategorySections = async (req, res) => {
   }
 };
 
+/**
+ * Get home settings (Admin)
+ * Returns current section titles for Section 6 and Section 7
+ * @route GET /api/v1/home/settings
+ * @access Private (Admin)
+ */
+const getHomeSettings = async (req, res) => {
+  try {
+    const homeSettings = await HomeSettings.getSettings();
+
+    return apiResponse({
+      res,
+      statusCode: StatusCodes.OK,
+      status: true,
+      message: "Home settings fetched successfully",
+      data: homeSettings,
+    });
+  } catch (error) {
+    console.error("Get Home Settings Error:", error);
+    return apiResponse({
+      res,
+      statusCode: StatusCodes.INTERNAL_SERVER_ERROR,
+      status: false,
+      message: "Failed to fetch home settings",
+      data: null,
+      error: error.message,
+    });
+  }
+};
+
+/**
+ * Update home settings (Admin)
+ * Updates section titles for Section 6 and Section 7
+ * @route PATCH /api/v1/home/settings
+ * @access Private (Admin)
+ */
+const updateHomeSettings = async (req, res) => {
+  try {
+    const { section6Title, section7Title } = req.body;
+
+    // Validate that at least one field is provided
+    if (section6Title === undefined && section7Title === undefined) {
+      return apiResponse({
+        res,
+        statusCode: StatusCodes.BAD_REQUEST,
+        status: false,
+        message:
+          "At least one field (section6Title or section7Title) must be provided",
+        data: null,
+      });
+    }
+
+    // Build update object with only provided fields
+    const updateFields = {};
+    if (section6Title !== undefined) {
+      updateFields.section6Title = String(section6Title).trim();
+    }
+    if (section7Title !== undefined) {
+      updateFields.section7Title = String(section7Title).trim();
+    }
+
+    // Use findOneAndUpdate with upsert to ensure only one document exists
+    const updatedSettings = await HomeSettings.findOneAndUpdate(
+      {},
+      { $set: updateFields },
+      { new: true, upsert: true, setDefaultsOnInsert: true }
+    );
+
+    return apiResponse({
+      res,
+      statusCode: StatusCodes.OK,
+      status: true,
+      message: "Home settings updated successfully",
+      data: updatedSettings,
+    });
+  } catch (error) {
+    console.error("Update Home Settings Error:", error);
+    return apiResponse({
+      res,
+      statusCode: StatusCodes.INTERNAL_SERVER_ERROR,
+      status: false,
+      message: "Failed to update home settings",
+      data: null,
+      error: error.message,
+    });
+  }
+};
+
 export default {
   getHomeData,
   getAllSectionsData,
@@ -2375,4 +2575,6 @@ export default {
   reorderSubcategorySection,
   bulkReorderCategorySections,
   bulkReorderSubcategorySections,
+  getHomeSettings,
+  updateHomeSettings,
 };
