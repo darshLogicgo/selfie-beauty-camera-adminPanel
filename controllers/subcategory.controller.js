@@ -446,12 +446,12 @@ export const updateSubcategory = async (req, res) => {
     // Normalize media fields
     const mediaFields = ["img_sqr", "img_rec", "video_sqr", "video_rec"];
     for (const field of mediaFields) {
-      if (
-        finalPayload[field] === null ||
-        finalPayload[field] === "null" ||
-        finalPayload[field] === undefined
-      ) {
+      // If field is explicitly "null" or null, set to empty string (user wants to remove)
+      if (finalPayload[field] === null || finalPayload[field] === "null") {
         finalPayload[field] = "";
+      } else if (finalPayload[field] === undefined) {
+        // If field is undefined (not sent), remove it from payload to preserve existing value
+        delete finalPayload[field];
       }
       // Delete old file if new one uploaded
       if (mediaUploads[field] && existing[field]) {
