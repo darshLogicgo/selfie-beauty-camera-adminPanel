@@ -18,10 +18,6 @@ route.post(
 route.get(
   "/app-versions",
   upload.none(),
-  (req, res, next) => {
-    console.log("✅ Route /app-versions hit!");
-    next();
-  },
   verifyToken,
   uninstallController.getAppVersions
 );
