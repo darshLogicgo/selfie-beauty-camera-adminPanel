@@ -47,12 +47,12 @@ const validate = (schema) => (req, res, next) => {
   const object = pick(req, Object.keys(validSchema));
 
   // Only check for empty input if body schema exists and body is actually empty
-  // Skip this check if we have a body schema - let Joi handle the validation
-  if (validSchema.body) {
-    // If body schema exists, skip the empty check and let Joi validate
-    // This allows Joi to provide proper error messages
+  // Skip this check if we have a body schema or query schema - let Joi handle the validation
+  if (validSchema.body || validSchema.query) {
+    // If body or query schema exists, skip the empty check and let Joi validate
+    // This allows Joi to provide proper error messages and allows empty query params for GET requests
   } else {
-    // Only check for empty input if there's no body schema
+    // Only check for empty input if there's no body or query schema
     const isEmptyInput = ["params", "query", "body", "files"].every((key) => {
       return (
         !object[key] ||
@@ -104,6 +104,16 @@ const validate = (schema) => (req, res, next) => {
     req.params = value.params;
   }
   if (validSchema.query && value.query !== undefined) {
+    // Preserve app_version if it exists in original but might be stripped by Joi
+    if (object.query && object.query.app_version !== undefined) {
+      if (!value.query.app_version && object.query.app_version) {
+        value.query.app_version = object.query.app_version;
+      }
+      // Also ensure empty strings are preserved if they were in the original
+      if (object.query.app_version === "" && value.query.app_version === undefined) {
+        value.query.app_version = "";
+      }
+    }
     req.query = value.query;
   }
   if (validSchema.files && value.files !== undefined) {
