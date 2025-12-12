@@ -54,6 +54,9 @@ app.use("/api/v1/home", router.homeRoute);
 // Uninstall Routes
 app.use("/api/v1/uninstall", router.uninstallRoute);
 
+// Share Routes (Deep Linking)
+app.use("/api/v1/share", router.shareRoute);
+
 // Initialize Socket.IO
 initializeSocket(server);
 

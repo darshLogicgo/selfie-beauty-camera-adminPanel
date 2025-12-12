@@ -8,6 +8,7 @@ import subCategory from "./routes/subcategory.route.js";
 import aiPhotoRoute from "./routes/aiphoto.route.js";
 import homeRoute from "./routes/home.route.js";
 import uninstallRoute from "./routes/uninstall.route.js";
+import shareRoute from "./routes/share.route.js";
 
 export default {
   authRoute,
@@ -19,4 +20,5 @@ export default {
   aiPhotoRoute,
   homeRoute,
   uninstallRoute,
+  shareRoute,
 };
