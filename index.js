@@ -8,6 +8,8 @@ import errorHandler from "./middleware/error-handler.middleware.js";
 import router from "./router.js";
 import initializeSocket from "./socket/socket.io.js";
 
+// test
+
 const app = express();
 const server = http.createServer(app);
 
