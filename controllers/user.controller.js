@@ -463,6 +463,55 @@ const updateRole = async (req, res) => {
   }
 }
 
+// ---- Update FCM Token -----
+const updateFcmToken = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { fcmToken } = req.body;
+
+    if (!fcmToken) {
+      return apiResponse({
+        res,
+        status: false,
+        message: "FCM token is required",
+        statusCode: StatusCodes.BAD_REQUEST,
+        data: null,
+      });
+    }
+
+    const updatedUser = await userServices.findByIdAndUpdate(userId, {
+      fcmToken: fcmToken,
+    });
+
+    if (!updatedUser) {
+      return apiResponse({
+        res,
+        status: false,
+        message: "User not found",
+        statusCode: StatusCodes.NOT_FOUND,
+        data: null,
+      });
+    }
+
+    return apiResponse({
+      res,
+      status: true,
+      message: "FCM token updated successfully",
+      statusCode: StatusCodes.OK,
+      data: null,
+    });
+  } catch (error) {
+    console.error("Error updating FCM token:", error);
+    return apiResponse({
+      res,
+      status: false,
+      message: "Failed to update FCM token",
+      statusCode: StatusCodes.INTERNAL_SERVER_ERROR,
+      data: null,
+    });
+  }
+};
+
 export default {
   getUserProfile,
   updateUserProfile,
@@ -474,5 +523,6 @@ export default {
   changePassword,
   recoveryEmail,
   recoveryMobileNumber,
-  updateRole
+  updateRole,
+  updateFcmToken
 };
