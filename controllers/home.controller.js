@@ -165,6 +165,8 @@ export const getHomeData = async (req, res) => {
           isPremium: 1,
           selectImage: 1,
           prompt: 1,
+          section2Order: 1,
+          isSection2: 1,
           createdAt: 1,
           updatedAt: 1,
         })
