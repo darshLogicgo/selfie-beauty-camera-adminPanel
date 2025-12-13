@@ -1,6 +1,7 @@
 import { StatusCodes } from "http-status-codes";
 import Subcategory from "../models/Subcategory.js";
 import { apiResponse } from "../helper/api-response.helper.js";
+import helper from "../helper/common.helper.js";
 import mongoose from "mongoose";
 
 // Get AI Photo subcategories (Client side - sorted by aiPhotoOrder)
@@ -8,9 +9,11 @@ export const getAiPhotoSubcategories = async (req, res) => {
   try {
     const { page = 1, limit = 100 } = req.query;
 
-    const pageNum = Number(page);
-    const lim = Number(limit);
-    const skip = (pageNum - 1) * lim;
+    const limitNum = Number(limit) > 0 ? Number(limit) : 100;
+    const { skip, limit: limitFromHelper } = helper.paginationFun({
+      page,
+      limit: limitNum,
+    });
 
     // Filter only AI Photo subcategories with valid orders
     const filter = {
@@ -22,7 +25,11 @@ export const getAiPhotoSubcategories = async (req, res) => {
     const sort = { aiPhotoOrder: 1, createdAt: 1 };
 
     const [items, totalItems] = await Promise.all([
-      Subcategory.find(filter).sort(sort).skip(skip).limit(lim).lean(),
+      Subcategory.find(filter)
+        .sort(sort)
+        .skip(skip)
+        .limit(limitFromHelper)
+        .lean(),
       Subcategory.countDocuments(filter),
     ]);
 
@@ -100,6 +107,11 @@ export const getAiPhotoSubcategories = async (req, res) => {
       statusCode: StatusCodes.OK,
       message: "AI Photos fetched successfully",
       data: formattedData,
+      pagination: helper.paginationDetails({
+        page,
+        totalItems,
+        limit: limitFromHelper,
+      }),
     });
   } catch (error) {
     console.error("getAiPhotoSubcategories error:", error);

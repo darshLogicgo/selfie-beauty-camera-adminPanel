@@ -5,6 +5,7 @@ import HomeSettings from "../models/homeSettings.model.js";
 import MediaClick from "../models/media_click.model.js";
 import categoryService from "../services/category.service.js";
 import { apiResponse } from "../helper/api-response.helper.js";
+import helper from "../helper/common.helper.js";
 import mongoose from "mongoose";
 
 /**
@@ -720,8 +721,11 @@ const getAllSectionsData = async (req, res) => {
 const getAllCategoriesForSection1 = async (req, res) => {
   try {
     const { page = 1, limit = 10 } = req.query;
-    const skip = (Number(page) - 1) * Number(limit);
     const limitNum = Number(limit) > 0 ? Number(limit) : 50;
+    const { skip, limit: limitFromHelper } = helper.paginationFun({
+      page,
+      limit: limitNum,
+    });
 
     const [categories, total] = await Promise.all([
       categoryService
@@ -744,13 +748,11 @@ const getAllCategoriesForSection1 = async (req, res) => {
         })
         .sort({ section1Order: 1, createdAt: 1 })
         .skip(skip)
-        .limit(limitNum)
+        .limit(limitFromHelper)
         .lean()
         .hint({ isDeleted: 1, section1Order: 1 }),
       categoryService.countDocuments({ isDeleted: false, status: true }),
     ]);
-
-    const totalPages = Math.ceil(total / limitNum);
 
     return apiResponse({
       res,
@@ -758,12 +760,11 @@ const getAllCategoriesForSection1 = async (req, res) => {
       status: true,
       message: "Categories fetched successfully for Section 1 selection",
       data: categories,
-      pagination: {
-        page: Number(page),
-        limit: limitNum,
-        total,
-        totalPages,
-      },
+      pagination: helper.paginationDetails({
+        page,
+        totalItems: total,
+        limit: limitFromHelper,
+      }),
     });
   } catch (error) {
     console.error("Get All Categories For Section 1 Error:", error);
@@ -786,8 +787,11 @@ const getAllCategoriesForSection1 = async (req, res) => {
 const getAllCategoriesForSection2 = async (req, res) => {
   try {
     const { page = 1, limit = 10 } = req.query;
-    const skip = (Number(page) - 1) * Number(limit);
     const limitNum = Number(limit) > 0 ? Number(limit) : 50;
+    const { skip, limit: limitFromHelper } = helper.paginationFun({
+      page,
+      limit: limitNum,
+    });
 
     const [categories, total] = await Promise.all([
       categoryService
@@ -810,13 +814,11 @@ const getAllCategoriesForSection2 = async (req, res) => {
         })
         .sort({ section2Order: 1, createdAt: 1 })
         .skip(skip)
-        .limit(limitNum)
+        .limit(limitFromHelper)
         .lean()
         .hint({ isDeleted: 1, section2Order: 1 }),
       categoryService.countDocuments({ isDeleted: false, status: true }),
     ]);
-
-    const totalPages = Math.ceil(total / limitNum);
 
     return apiResponse({
       res,
@@ -824,12 +826,11 @@ const getAllCategoriesForSection2 = async (req, res) => {
       status: true,
       message: "Categories fetched successfully for Section 2 selection",
       data: categories,
-      pagination: {
-        page: Number(page),
-        limit: limitNum,
-        total,
-        totalPages,
-      },
+      pagination: helper.paginationDetails({
+        page,
+        totalItems: total,
+        limit: limitFromHelper,
+      }),
     });
   } catch (error) {
     console.error("Get All Categories For Section 2 Error:", error);
@@ -852,8 +853,11 @@ const getAllCategoriesForSection2 = async (req, res) => {
 const getAllCategoriesForSection6 = async (req, res) => {
   try {
     const { page = 1, limit = 10 } = req.query;
-    const skip = (Number(page) - 1) * Number(limit);
     const limitNum = Number(limit) > 0 ? Number(limit) : 50;
+    const { skip, limit: limitFromHelper } = helper.paginationFun({
+      page,
+      limit: limitNum,
+    });
 
     const [categories, total] = await Promise.all([
       categoryService
@@ -876,13 +880,11 @@ const getAllCategoriesForSection6 = async (req, res) => {
         })
         .sort({ section6Order: 1, createdAt: 1 })
         .skip(skip)
-        .limit(limitNum)
+        .limit(limitFromHelper)
         .lean()
         .hint({ isDeleted: 1, section6Order: 1 }),
       categoryService.countDocuments({ isDeleted: false, status: true }),
     ]);
-
-    const totalPages = Math.ceil(total / limitNum);
 
     return apiResponse({
       res,
@@ -890,12 +892,11 @@ const getAllCategoriesForSection6 = async (req, res) => {
       status: true,
       message: "Categories fetched successfully for Section 6 selection",
       data: categories,
-      pagination: {
-        page: Number(page),
-        limit: limitNum,
-        total,
-        totalPages,
-      },
+      pagination: helper.paginationDetails({
+        page,
+        totalItems: total,
+        limit: limitFromHelper,
+      }),
     });
   } catch (error) {
     console.error("Get All Categories For Section 6 Error:", error);
@@ -918,8 +919,11 @@ const getAllCategoriesForSection6 = async (req, res) => {
 const getAllCategoriesForSection7 = async (req, res) => {
   try {
     const { page = 1, limit = 10 } = req.query;
-    const skip = (Number(page) - 1) * Number(limit);
     const limitNum = Number(limit) > 0 ? Number(limit) : 50;
+    const { skip, limit: limitFromHelper } = helper.paginationFun({
+      page,
+      limit: limitNum,
+    });
 
     const [categories, total] = await Promise.all([
       categoryService
@@ -942,13 +946,11 @@ const getAllCategoriesForSection7 = async (req, res) => {
         })
         .sort({ section7Order: 1, createdAt: 1 })
         .skip(skip)
-        .limit(limitNum)
+        .limit(limitFromHelper)
         .lean()
         .hint({ isDeleted: 1, section7Order: 1 }),
       categoryService.countDocuments({ isDeleted: false, status: true }),
     ]);
-
-    const totalPages = Math.ceil(total / limitNum);
 
     return apiResponse({
       res,
@@ -956,12 +958,11 @@ const getAllCategoriesForSection7 = async (req, res) => {
       status: true,
       message: "Categories fetched successfully for Section 7 selection",
       data: categories,
-      pagination: {
-        page: Number(page),
-        limit: limitNum,
-        total,
-        totalPages,
-      },
+      pagination: helper.paginationDetails({
+        page,
+        totalItems: total,
+        limit: limitFromHelper,
+      }),
     });
   } catch (error) {
     console.error("Get All Categories For Section 7 Error:", error);
@@ -984,8 +985,11 @@ const getAllCategoriesForSection7 = async (req, res) => {
 const getAllSubcategoriesForSection3 = async (req, res) => {
   try {
     const { page = 1, limit = 10 } = req.query;
-    const skip = (Number(page) - 1) * Number(limit);
     const limitNum = Number(limit) > 0 ? Number(limit) : 50;
+    const { skip, limit: limitFromHelper } = helper.paginationFun({
+      page,
+      limit: limitNum,
+    });
 
     const [subcategories, total] = await Promise.all([
       Subcategory.find({ status: true })
@@ -1008,13 +1012,11 @@ const getAllSubcategoriesForSection3 = async (req, res) => {
         })
         .sort({ section3Order: 1, createdAt: 1 })
         .skip(skip)
-        .limit(limitNum)
+        .limit(limitFromHelper)
         .lean()
         .hint({ status: 1, section3Order: 1 }),
       Subcategory.countDocuments({ status: true }),
     ]);
-
-    const totalPages = Math.ceil(total / limitNum);
 
     return apiResponse({
       res,
@@ -1022,12 +1024,11 @@ const getAllSubcategoriesForSection3 = async (req, res) => {
       status: true,
       message: "Subcategories fetched successfully for Section 3 selection",
       data: subcategories,
-      pagination: {
-        page: Number(page),
-        limit: limitNum,
-        total,
-        totalPages,
-      },
+      pagination: helper.paginationDetails({
+        page,
+        totalItems: total,
+        limit: limitFromHelper,
+      }),
     });
   } catch (error) {
     console.error("Get All Subcategories For Section 3 Error:", error);
@@ -1050,8 +1051,11 @@ const getAllSubcategoriesForSection3 = async (req, res) => {
 const getAllSubcategoriesForSection4 = async (req, res) => {
   try {
     const { page = 1, limit = 10 } = req.query;
-    const skip = (Number(page) - 1) * Number(limit);
     const limitNum = Number(limit) > 0 ? Number(limit) : 50;
+    const { skip, limit: limitFromHelper } = helper.paginationFun({
+      page,
+      limit: limitNum,
+    });
 
     const [subcategories, total] = await Promise.all([
       Subcategory.find({ status: true })
@@ -1074,13 +1078,11 @@ const getAllSubcategoriesForSection4 = async (req, res) => {
         })
         .sort({ section4Order: 1, createdAt: 1 })
         .skip(skip)
-        .limit(limitNum)
+        .limit(limitFromHelper)
         .lean()
         .hint({ status: 1, section4Order: 1 }),
       Subcategory.countDocuments({ status: true }),
     ]);
-
-    const totalPages = Math.ceil(total / limitNum);
 
     return apiResponse({
       res,
@@ -1088,12 +1090,11 @@ const getAllSubcategoriesForSection4 = async (req, res) => {
       status: true,
       message: "Subcategories fetched successfully for Section 4 selection",
       data: subcategories,
-      pagination: {
-        page: Number(page),
-        limit: limitNum,
-        total,
-        totalPages,
-      },
+      pagination: helper.paginationDetails({
+        page,
+        totalItems: total,
+        limit: limitFromHelper,
+      }),
     });
   } catch (error) {
     console.error("Get All Subcategories For Section 4 Error:", error);
@@ -1116,8 +1117,11 @@ const getAllSubcategoriesForSection4 = async (req, res) => {
 const getAllSubcategoriesForSection5 = async (req, res) => {
   try {
     const { page = 1, limit = 10 } = req.query;
-    const skip = (Number(page) - 1) * Number(limit);
     const limitNum = Number(limit) > 0 ? Number(limit) : 50;
+    const { skip, limit: limitFromHelper } = helper.paginationFun({
+      page,
+      limit: limitNum,
+    });
 
     const [subcategories, total] = await Promise.all([
       Subcategory.find({ status: true })
@@ -1140,13 +1144,11 @@ const getAllSubcategoriesForSection5 = async (req, res) => {
         })
         .sort({ section5Order: 1, createdAt: 1 })
         .skip(skip)
-        .limit(limitNum)
+        .limit(limitFromHelper)
         .lean()
         .hint({ status: 1, section5Order: 1 }),
       Subcategory.countDocuments({ status: true }),
     ]);
-
-    const totalPages = Math.ceil(total / limitNum);
 
     return apiResponse({
       res,
@@ -1154,12 +1156,11 @@ const getAllSubcategoriesForSection5 = async (req, res) => {
       status: true,
       message: "Subcategories fetched successfully for Section 5 selection",
       data: subcategories,
-      pagination: {
-        page: Number(page),
-        limit: limitNum,
-        total,
-        totalPages,
-      },
+      pagination: helper.paginationDetails({
+        page,
+        totalItems: total,
+        limit: limitFromHelper,
+      }),
     });
   } catch (error) {
     console.error("Get All Subcategories For Section 5 Error:", error);
