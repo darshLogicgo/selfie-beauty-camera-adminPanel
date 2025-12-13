@@ -7,6 +7,7 @@ import http from "http";
 import errorHandler from "./middleware/error-handler.middleware.js";
 import router from "./router.js";
 import initializeSocket from "./socket/socket.io.js";
+import helper from "./helper/common.helper.js";
 
 // test
 
@@ -17,6 +18,12 @@ app.disable("x-powered-by");
 
 // connect database
 connectDB();
+
+// helper.sendFCMNotification({
+//   fcmToken: "fcmToken",
+//   title: "Test Notification",
+//   description: "This is a test notification",
+// });
 
 // middleware
 app.use(morgan("dev"));

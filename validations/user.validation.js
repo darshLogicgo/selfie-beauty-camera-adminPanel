@@ -48,6 +48,15 @@ const verif2faOtp = {
   }),
 }
 
+const updateFcmToken = {
+  body: Joi.object().keys({
+    fcmToken: Joi.string().required().messages({
+      "any.required": "FCM token is required",
+      "string.base": "FCM token must be a string",
+    }),
+  }),
+};
+
 export default {
   updateUserProfile,
   deleteUserAccountValidation,
@@ -55,5 +64,6 @@ export default {
   recoveryEmail,
   recoveryMobileNumber,
   updateRole,
-  verif2faOtp
+  verif2faOtp,
+  updateFcmToken
 };
