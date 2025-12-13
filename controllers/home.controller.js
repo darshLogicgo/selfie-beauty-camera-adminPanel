@@ -1,6 +1,6 @@
 import { StatusCodes } from "http-status-codes";
 import Category from "../models/category.model.js";
-import Subcategory from "../models/Subcategory.js";
+import Subcategory from "../models/subcategory.js";
 import HomeSettings from "../models/homeSettings.model.js";
 import MediaClick from "../models/media_click.model.js";
 import categoryService from "../services/category.service.js";

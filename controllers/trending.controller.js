@@ -1,6 +1,6 @@
 import mongoose from "mongoose";
 import Category from "../models/category.model.js";
-import Subcategory from "../models/Subcategory.js";
+import Subcategory from "../models/subcategory.js";
 import categoryService from "../services/category.service.js";
 import { apiResponse } from "../helper/api-response.helper.js";
 import { StatusCodes } from "http-status-codes";

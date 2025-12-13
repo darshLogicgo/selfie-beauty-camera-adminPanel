@@ -1,5 +1,5 @@
 import { StatusCodes } from "http-status-codes";
-import Subcategory from "../models/Subcategory.js";
+import Subcategory from "../models/subcategory.js";
 import fileUploadService from "../services/file.upload.service.js";
 import { apiResponse } from "../helper/api-response.helper.js";
 import mongoose from "mongoose";

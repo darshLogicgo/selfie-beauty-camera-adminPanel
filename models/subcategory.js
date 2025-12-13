@@ -70,4 +70,7 @@ SubcategorySchema.index({ isSection5: 1, section5Order: 1 });
 SubcategorySchema.index({ status: 1, isSection5: 1, section5Order: 1 });
 SubcategorySchema.index({ section5Order: -1 });
 
-export default model("Subcategory", SubcategorySchema);
+// Check if model already exists to prevent overwrite error during hot reload
+const Subcategory = mongoose.models.Subcategory || model("Subcategory", SubcategorySchema);
+
+export default Subcategory;
