@@ -519,13 +519,15 @@ const loginByEmail = async (req, res) => {
       },
     });
   } catch (error) {
-    console.log(error);
+    console.error("❌ loginByEmail error:", error);
+    console.error("❌ Error stack:", error.stack);
+    console.error("❌ Error message:", error.message);
 
     return apiResponse({
       res,
       statusCode: StatusCodes.INTERNAL_SERVER_ERROR,
       status: false,
-      message: "Internal server error",
+      message: error.message || "Internal server error",
       data: null,
     });
   }

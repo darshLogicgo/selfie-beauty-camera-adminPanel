@@ -9,6 +9,7 @@ import aiPhotoRoute from "./routes/aiphoto.route.js";
 import homeRoute from "./routes/home.route.js";
 import uninstallRoute from "./routes/uninstall.route.js";
 import feedbackRoute from "./routes/feedback.route.js";
+import dashboardRoute from "./routes/dashboard.route.js";
 import shareRoute from "./routes/share.route.js";
 
 export default {
@@ -23,4 +24,5 @@ export default {
   uninstallRoute,
   feedbackRoute,
   shareRoute,
+  dashboardRoute,
 };

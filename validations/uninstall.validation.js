@@ -40,12 +40,13 @@ const getUninstall = {
     id: Joi.string().optional(),
     startDate: Joi.date().optional(),
     endDate: Joi.date().optional(),
-    uninstall_reason: Joi.string().optional(),
-    platform: Joi.string().optional(),
+    uninstall_reason: Joi.string().valid(...Object.values(UNINSTALL_REASONS)).optional().allow(""),
+    platform: Joi.string().valid("android", "ios", "web").optional().allow(""),
+    app_version: Joi.string().optional().allow("", null), // Preserve the value as-is, including empty strings
     userId: Joi.string().optional(),
     page: Joi.number().integer().min(1).optional(),
     limit: Joi.number().integer().min(1).optional(),
-  }),
+  }).unknown(false), // Don't allow unknown fields, but all known fields are defined above
 };
 
 const deleteUninstall = {

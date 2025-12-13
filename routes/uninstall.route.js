@@ -14,10 +14,19 @@ route.post(
   uninstallController.createUninstall
 );
 
+// IMPORTANT: Specific routes must come before generic routes
+route.get(
+  "/app-versions",
+  upload.none(),
+  verifyToken,
+  uninstallController.getAppVersions
+);
+
 route.get(
   "/",
   upload.none(),
   verifyToken,
+  validate(uninstallValidation.getUninstall),
   uninstallController.getUninstall
 );
 

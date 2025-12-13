@@ -70,6 +70,9 @@ app.use("/api/v1/feedback", router.feedbackRoute);
 // Share Routes (Deep Linking)
 app.use("/api/v1/share", router.shareRoute);
 
+// Dashboard Routes
+app.use("/api/v1/dashboard", router.dashboardRoute);
+
 // Initialize Socket.IO
 initializeSocket(server);
 
