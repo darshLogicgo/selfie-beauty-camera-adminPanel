@@ -3,6 +3,7 @@ import Category from "../models/category.model.js";
 import categoryService from "../services/category.service.js";
 import { apiResponse } from "../helper/api-response.helper.js";
 import { StatusCodes } from "http-status-codes";
+import helper from "../helper/common.helper.js";
 
 /**
  * Get all categories for AI World selection (Admin)
@@ -70,8 +71,11 @@ const getAllCategoriesForAiWorld = async (req, res) => {
 const getAiWorldCategories = async (req, res) => {
   try {
     const { page = 1, limit = 10 } = req.query;
-    const skip = (Number(page) - 1) * Number(limit);
     const limitNum = Number(limit) > 0 ? Number(limit) : 50;
+    const { skip, limit: limitFromHelper } = helper.paginationFun({
+      page,
+      limit: limitNum,
+    });
 
     // Parallel queries for faster response (optimized with index hints)
     const [aiWorldCategories, total] = await Promise.all([
@@ -99,7 +103,7 @@ const getAiWorldCategories = async (req, res) => {
         })
         .sort({ aiWorldOrder: 1, createdAt: 1 })
         .skip(skip)
-        .limit(limitNum)
+        .limit(limitFromHelper)
         .lean()
         .hint({ isDeleted: 1, status: 1, isAiWorld: 1, aiWorldOrder: 1 }),
       categoryService.countDocuments({
@@ -115,20 +119,17 @@ const getAiWorldCategories = async (req, res) => {
       imageCount: category.imageCount || 1,
     }));
 
-    const totalPages = Math.ceil(total / limitNum);
-
     return apiResponse({
       res,
       statusCode: StatusCodes.OK,
       status: true,
       message: "AI World categories fetched successfully",
       data: categoriesWithImageCount,
-      pagination: {
-        page: Number(page),
-        limit: limitNum,
-        total,
-        totalPages,
-      },
+      pagination: helper.paginationDetails({
+        page,
+        totalItems: total,
+        limit: limitFromHelper,
+      }),
     });
   } catch (error) {
     console.error("Get AI World Categories Error:", error);

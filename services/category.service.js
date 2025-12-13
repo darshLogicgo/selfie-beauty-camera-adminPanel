@@ -1,4 +1,5 @@
 import Category from "../models/category.model.js";
+import helper from "../helper/common.helper.js";
 
 /**
  * Find categories with filters, projection, and options
@@ -104,24 +105,26 @@ const findByStatus = async (status = true, projection = null) => {
  * @returns {Promise<Object>} - Paginated result
  */
 const getPaginated = async (page = 1, limit = 10) => {
-  const skip = (page - 1) * limit;
+  const { skip, limit: limitFromHelper } = helper.paginationFun({
+    page,
+    limit,
+  });
   const [data, total] = await Promise.all([
     Category.find({ isDeleted: false })
       .sort({ order: 1, updatedAt: -1 })
       .skip(skip)
-      .limit(limit)
+      .limit(limitFromHelper)
       .lean(),
     Category.countDocuments({ isDeleted: false }),
   ]);
 
   return {
     data,
-    pagination: {
+    pagination: helper.paginationDetails({
       page,
-      limit,
-      total,
-      pages: Math.ceil(total / limit),
-    },
+      totalItems: total,
+      limit: limitFromHelper,
+    }),
   };
 };
 
