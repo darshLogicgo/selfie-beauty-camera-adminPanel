@@ -2619,7 +2619,7 @@ const updateHomeSettings = async (req, res) => {
       res,
       statusCode: StatusCodes.OK,
       status: true,
-      message: "Home settings updated successfully",
+      message: "Title updated successfully",
       data: updatedSettings,
     });
   } catch (error) {
@@ -2628,7 +2628,7 @@ const updateHomeSettings = async (req, res) => {
       res,
       statusCode: StatusCodes.INTERNAL_SERVER_ERROR,
       status: false,
-      message: "Failed to update home settings",
+      message: "Failed to update title",
       data: null,
       error: error.message,
     });

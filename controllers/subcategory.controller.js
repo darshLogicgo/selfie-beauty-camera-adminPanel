@@ -45,6 +45,7 @@ const normalizeAssets = (assets) => {
           url: asset,
           isPremium: false,
           imageCount: 1,
+          prompt: "",
         };
       }
       return {
@@ -52,6 +53,7 @@ const normalizeAssets = (assets) => {
         url: asset.url || "",
         isPremium: asset.isPremium !== undefined ? asset.isPremium : false,
         imageCount: asset.imageCount !== undefined ? asset.imageCount : 1,
+        prompt: asset.prompt !== undefined ? String(asset.prompt).trim() : "",
       };
     })
     .filter((asset) => asset.url && asset.url.trim() !== "");
@@ -86,32 +88,34 @@ const processMediaUploads = async (req) => {
     }
   }
 
-  // Process asset_images files
-  // Note: Assets should have their own imageCount (default 1), not inherit from subcategory
-  if (req.files?.asset_images && Array.isArray(req.files.asset_images)) {
-    // Only use isPremium from body for assets, imageCount for assets should default to 1
-    // Subcategory's imageCount is separate and set on the subcategory itself
-    const { isPremium = false } = req.body || {};
-    const finalIsPremium = Boolean(isPremium);
+    // Process asset_images files
+    // Note: Assets should have their own imageCount (default 1), not inherit from subcategory
+    if (req.files?.asset_images && Array.isArray(req.files.asset_images)) {
+      // Only use isPremium from body for assets, imageCount for assets should default to 1
+      // Subcategory's imageCount is separate and set on the subcategory itself
+      const { isPremium = false, prompt = "" } = req.body || {};
+      const finalIsPremium = Boolean(isPremium);
+      const finalPrompt = String(prompt || "").trim();
 
-    const assetObjects = [];
-    for (const file of req.files.asset_images) {
-      const fileUrl = await fileUploadService.uploadFile({
-        buffer: file.buffer,
-        mimetype: file.mimetype,
-        folder: "subcategory/assets",
-      });
-      assetObjects.push({
-        _id: new mongoose.Types.ObjectId(),
-        url: fileUrl,
-        isPremium: finalIsPremium,
-        imageCount: 1, // Assets default to 1, can be updated via asset-specific APIs
-      });
+      const assetObjects = [];
+      for (const file of req.files.asset_images) {
+        const fileUrl = await fileUploadService.uploadFile({
+          buffer: file.buffer,
+          mimetype: file.mimetype,
+          folder: "subcategory/assets",
+        });
+        assetObjects.push({
+          _id: new mongoose.Types.ObjectId(),
+          url: fileUrl,
+          isPremium: finalIsPremium,
+          imageCount: 1, // Assets default to 1, can be updated via asset-specific APIs
+          prompt: finalPrompt,
+        });
+      }
+      if (assetObjects.length > 0) {
+        uploaded.asset_images = assetObjects;
+      }
     }
-    if (assetObjects.length > 0) {
-      uploaded.asset_images = assetObjects;
-    }
-  }
 
   return uploaded;
 };
@@ -222,6 +226,7 @@ export const createSubcategory = async (req, res) => {
                   url: asset,
                   isPremium: false,
                   imageCount: 1,
+                  prompt: "",
                 }
               : {
                   _id: preserveAssetId(asset),
@@ -232,6 +237,10 @@ export const createSubcategory = async (req, res) => {
                     asset.imageCount !== undefined
                       ? Number(asset.imageCount)
                       : 1,
+                  prompt:
+                    asset.prompt !== undefined
+                      ? String(asset.prompt).trim()
+                      : "",
                 }
           );
         }
@@ -815,8 +824,10 @@ export const uploadAssetImages = async (req, res) => {
     // Process uploaded files
     // Assets should have their own imageCount (default 1), not inherit from subcategory
     // If imageCount is provided in body, it's for the asset itself
-    const { isPremium = false, imageCount, imagecount } = req.body || {};
+    const { isPremium = false, imageCount, imagecount, prompt = "" } =
+      req.body || {};
     const finalIsPremium = Boolean(isPremium);
+    const finalPrompt = String(prompt || "").trim();
     // For assets, use imageCount from body if provided, otherwise default to 1
     const assetImageCount =
       imageCount !== undefined
@@ -839,6 +850,7 @@ export const uploadAssetImages = async (req, res) => {
             url: fileUrl,
             isPremium: finalIsPremium,
             imageCount: assetImageCount, // Use asset-specific imageCount
+            prompt: finalPrompt,
           });
         } catch (err) {
           console.error("Error uploading asset:", err);
@@ -1074,8 +1086,10 @@ export const manageSubcategoryAssets = async (req, res) => {
     }
 
     // Assets should have their own imageCount (default 1), not inherit from subcategory
-    const { isPremium = false, imageCount, imagecount } = req.body || {};
+    const { isPremium = false, imageCount, imagecount, prompt = "" } =
+      req.body || {};
     const finalIsPremium = Boolean(isPremium);
+    const finalPrompt = String(prompt || "").trim();
     // For assets, use imageCount from body if provided, otherwise default to 1
     const assetImageCount =
       imageCount !== undefined
@@ -1110,6 +1124,7 @@ export const manageSubcategoryAssets = async (req, res) => {
               url: fileUrl,
               isPremium: finalIsPremium,
               imageCount: assetImageCount,
+              prompt: finalPrompt,
             });
             existingUrls.push(fileUrl); // Add to existing to prevent duplicates in same batch
           }
@@ -1162,6 +1177,7 @@ export const manageSubcategoryAssets = async (req, res) => {
         url: addUrl,
         isPremium: finalIsPremium,
         imageCount: assetImageCount, // Use asset-specific imageCount
+        prompt: finalPrompt,
       };
 
       const updated = await Subcategory.findByIdAndUpdate(
@@ -1405,7 +1421,7 @@ export const getSubcategoryAssets = async (req, res) => {
       _id: id,
       status: true,
     })
-      .select({ _id: 1, subcategoryTitle: 1, asset_images: 1 })
+      .select({ _id: 1, subcategoryTitle: 1, asset_images: 1, prompt: 1 })
       .lean();
 
     if (!subcategory) {
@@ -1506,11 +1522,18 @@ export const toggleSubcategoryPremium = async (req, res) => {
   }
 };
 
-// Update Individual Asset Properties (isPremium, imageCount)
+// Update Individual Asset Properties (isPremium, imageCount, prompt)
 export const updateAssetImage = async (req, res) => {
   try {
     const { id } = req.params;
-    const { assetId, url, isPremium, imageCount, imagecount } = req.body || {};
+    const {
+      assetId,
+      url,
+      isPremium,
+      imageCount,
+      imagecount,
+      prompt,
+    } = req.body || {};
 
     if (!mongoose.Types.ObjectId.isValid(id)) {
       return apiResponse({
@@ -1531,17 +1554,19 @@ export const updateAssetImage = async (req, res) => {
       });
     }
 
-    // At least one of isPremium or imageCount must be provided
+    // At least one of isPremium, imageCount, or prompt must be provided
     if (
       isPremium === undefined &&
       imageCount === undefined &&
-      imagecount === undefined
+      imagecount === undefined &&
+      prompt === undefined
     ) {
       return apiResponse({
         res,
         status: false,
         statusCode: StatusCodes.BAD_REQUEST,
-        message: "At least one of isPremium or imageCount must be provided",
+        message:
+          "At least one of isPremium, imageCount, or prompt must be provided",
       });
     }
 
@@ -1601,6 +1626,10 @@ export const updateAssetImage = async (req, res) => {
 
     if (finalImageCount !== undefined) {
       updateSet["asset_images.$[asset].imageCount"] = finalImageCount;
+    }
+
+    if (prompt !== undefined) {
+      updateSet["asset_images.$[asset].prompt"] = String(prompt).trim();
     }
 
     // Update the asset in the array using arrayFilters

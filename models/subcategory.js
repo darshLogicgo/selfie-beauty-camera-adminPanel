@@ -29,8 +29,9 @@ const SubcategorySchema = new Schema(
         url: { type: String, required: true },
         isPremium: { type: Boolean, default: false },
         imageCount: { type: Number, default: 1, min: 1 },
+        prompt: { type: String, default: "", trim: true }, // Optional prompt field
       },
-    ], // Array of asset objects with _id, url, isPremium, and imageCount
+    ], // Array of asset objects with _id, url, isPremium, imageCount, and prompt
     // Premium field
     isPremium: { type: Boolean, default: false }, // Whether subcategory is premium
     // Image count field
