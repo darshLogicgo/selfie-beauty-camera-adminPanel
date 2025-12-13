@@ -83,6 +83,42 @@ export const getHomeData = async (req, res) => {
       section1Query.isSection1 = true;
     }
 
+    // Build Section 2 query - include categories user clicked even if isSection2 is false
+    // Also include priority categoryId from query if provided
+    const section2Query = {
+      isDeleted: false,
+      status: true,
+    };
+
+    // Build $or conditions array for Section 2
+    const section2OrConditions = [{ isSection2: true }];
+
+    // Add priority categoryId from query if provided
+    if (priorityCategoryId) {
+      section2OrConditions.push({
+        _id: new mongoose.Types.ObjectId(priorityCategoryId),
+      });
+    }
+
+    // Add user clicked categories
+    if (userClickedCategoryIds.size > 0) {
+      section2OrConditions.push({
+        _id: {
+          $in: Array.from(userClickedCategoryIds).map(
+            (id) => new mongoose.Types.ObjectId(id)
+          ),
+        },
+      });
+    }
+
+    // If we have any special conditions, use $or, otherwise default to isSection2: true
+    if (section2OrConditions.length > 1 || priorityCategoryId) {
+      section2Query.$or = section2OrConditions;
+    } else {
+      // Default: only show categories with isSection2: true
+      section2Query.isSection2 = true;
+    }
+
     // Parallel queries for all sections (optimized)
     const [
       section1Categories,
@@ -116,11 +152,7 @@ export const getHomeData = async (req, res) => {
         .hint({ isDeleted: 1, status: 1, isSection1: 1, section1Order: 1 }),
 
       // Section 2: Category Showcase
-      Category.find({
-        isDeleted: false,
-        status: true,
-        isSection2: true,
-      })
+      Category.find(section2Query)
         .select({
           name: 1,
           img_sqr: 1,
@@ -379,6 +411,125 @@ export const getHomeData = async (req, res) => {
       sortedSection1Categories = otherCategories;
     }
 
+    // Sort Section 2 categories based on priority categoryId and user click data
+    let sortedSection2Categories = section2Categories;
+
+    // Separate priority category (from query) and other categories for Section 2
+    let priorityCategory2 = null;
+    let otherCategories2 = [];
+
+    if (priorityCategoryId) {
+      const priorityIndex2 = section2Categories.findIndex(
+        (cat) => cat._id.toString() === priorityCategoryId
+      );
+      if (priorityIndex2 !== -1) {
+        priorityCategory2 = section2Categories[priorityIndex2];
+        otherCategories2 = section2Categories.filter(
+          (cat) => cat._id.toString() !== priorityCategoryId
+        );
+      } else {
+        // Priority category not found in results, try to fetch it separately
+        try {
+          const fetchedCategory2 = await Category.findOne({
+            _id: new mongoose.Types.ObjectId(priorityCategoryId),
+            isDeleted: false,
+            status: true,
+          })
+            .select({
+              name: 1,
+              img_sqr: 1,
+              img_rec: 1,
+              video_sqr: 1,
+              video_rec: 1,
+              status: 1,
+              order: 1,
+              isPremium: 1,
+              selectImage: 1,
+              prompt: 1,
+              section2Order: 1,
+              isSection2: 1,
+              createdAt: 1,
+              updatedAt: 1,
+            })
+            .lean();
+          if (fetchedCategory2) {
+            priorityCategory2 = fetchedCategory2;
+            otherCategories2 = section2Categories;
+          } else {
+            otherCategories2 = section2Categories;
+          }
+        } catch (error) {
+          console.error("Error fetching priority category for Section 2:", error);
+          otherCategories2 = section2Categories;
+        }
+      }
+    } else {
+      otherCategories2 = section2Categories;
+    }
+
+    // Sort other categories based on user click data for Section 2
+    if (
+      userId &&
+      userClickData &&
+      userClickData.categories &&
+      userClickData.categories.length > 0
+    ) {
+      // Create a map of categoryId to click_count for quick lookup
+      const clickCountMap2 = new Map();
+      userClickData.categories.forEach((cat) => {
+        if (cat.categoryId) {
+          clickCountMap2.set(cat.categoryId.toString(), cat.click_count || 0);
+        }
+      });
+
+      // Sort categories:
+      // 1. First by click_count (descending - highest first)
+      // 2. If click_count is same, user-clicked categories first, then by section2Order
+      otherCategories2 = [...otherCategories2].sort((a, b) => {
+        const aId = a._id.toString();
+        const bId = b._id.toString();
+        const aClickCount = clickCountMap2.get(aId) || 0;
+        const bClickCount = clickCountMap2.get(bId) || 0;
+        const aIsClicked = clickCountMap2.has(aId);
+        const bIsClicked = clickCountMap2.has(bId);
+
+        // Primary sort: by click count (descending - highest first)
+        if (aClickCount !== bClickCount) {
+          return bClickCount - aClickCount;
+        }
+
+        // Secondary sort: if same click count, user-clicked categories first
+        // If a is clicked and b is not, a comes first (return -1)
+        // If b is clicked and a is not, b comes first (return 1)
+        if (aIsClicked && !bIsClicked) {
+          return -1;
+        }
+        if (!aIsClicked && bIsClicked) {
+          return 1;
+        }
+
+        // Tertiary sort: if both clicked or both not clicked, use section2Order
+        const aOrder = a.section2Order || 999999;
+        const bOrder = b.section2Order || 999999;
+        if (aOrder !== bOrder) {
+          return aOrder - bOrder;
+        }
+
+        // Final sort: by createdAt for consistency
+        return new Date(a.createdAt) - new Date(b.createdAt);
+      });
+    } else {
+      // Default sorting: by section2Order (already sorted from query)
+      // No need to re-sort if no click data
+    }
+
+    // Combine: priority category first, then other categories for Section 2
+    if (priorityCategory2) {
+      sortedSection2Categories = [priorityCategory2, ...otherCategories2];
+    } else {
+      sortedSection2Categories = otherCategories2;
+    }
+
     // Build response with 7 sections (all with title structure)
     const responseData = {
       section1: {
@@ -387,7 +538,7 @@ export const getHomeData = async (req, res) => {
       },
       section2: {
         title: "AI Face Swap",
-        categories: section2Categories, // Category Showcase
+        categories: sortedSection2Categories, // Category Showcase (sorted by click count if user has data)
       },
       section3: {
         title: "Ai Face Swap",
