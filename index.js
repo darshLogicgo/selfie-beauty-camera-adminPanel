@@ -54,6 +54,9 @@ app.use("/api/v1/uninstall", router.uninstallRoute);
 // Feedback Routes
 app.use("/api/v1/feedback", router.feedbackRoute);
 
+// Dashboard Routes
+app.use("/api/v1/dashboard", router.dashboardRoute);
+
 // Initialize Socket.IO
 initializeSocket(server);
 

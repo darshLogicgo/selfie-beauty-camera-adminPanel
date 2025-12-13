@@ -86,6 +86,7 @@ const schema = new mongoose.Schema(
     deviceId: { type: String, default: null },
     isDemo: { type: Boolean, default: false, index: true },
     countryCode: { type: String },
+    isSubscribed: { type: Boolean, default: false, index: true }, // Track subscription status
   },
   {
     timestamps: true,
