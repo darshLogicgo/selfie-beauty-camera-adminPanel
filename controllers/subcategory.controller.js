@@ -88,34 +88,34 @@ const processMediaUploads = async (req) => {
     }
   }
 
-    // Process asset_images files
-    // Note: Assets should have their own imageCount (default 1), not inherit from subcategory
-    if (req.files?.asset_images && Array.isArray(req.files.asset_images)) {
-      // Only use isPremium from body for assets, imageCount for assets should default to 1
-      // Subcategory's imageCount is separate and set on the subcategory itself
-      const { isPremium = false, prompt = "" } = req.body || {};
-      const finalIsPremium = Boolean(isPremium);
-      const finalPrompt = String(prompt || "").trim();
+  // Process asset_images files
+  // Note: Assets should have their own imageCount (default 1), not inherit from subcategory
+  if (req.files?.asset_images && Array.isArray(req.files.asset_images)) {
+    // Only use isPremium from body for assets, imageCount for assets should default to 1
+    // Subcategory's imageCount is separate and set on the subcategory itself
+    const { isPremium = false, prompt = "" } = req.body || {};
+    const finalIsPremium = Boolean(isPremium);
+    const finalPrompt = String(prompt || "").trim();
 
-      const assetObjects = [];
-      for (const file of req.files.asset_images) {
-        const fileUrl = await fileUploadService.uploadFile({
-          buffer: file.buffer,
-          mimetype: file.mimetype,
-          folder: "subcategory/assets",
-        });
-        assetObjects.push({
-          _id: new mongoose.Types.ObjectId(),
-          url: fileUrl,
-          isPremium: finalIsPremium,
-          imageCount: 1, // Assets default to 1, can be updated via asset-specific APIs
-          prompt: finalPrompt,
-        });
-      }
-      if (assetObjects.length > 0) {
-        uploaded.asset_images = assetObjects;
-      }
+    const assetObjects = [];
+    for (const file of req.files.asset_images) {
+      const fileUrl = await fileUploadService.uploadFile({
+        buffer: file.buffer,
+        mimetype: file.mimetype,
+        folder: "subcategory/assets",
+      });
+      assetObjects.push({
+        _id: new mongoose.Types.ObjectId(),
+        url: fileUrl,
+        isPremium: finalIsPremium,
+        imageCount: 1, // Assets default to 1, can be updated via asset-specific APIs
+        prompt: finalPrompt,
+      });
     }
+    if (assetObjects.length > 0) {
+      uploaded.asset_images = assetObjects;
+    }
+  }
 
   return uploaded;
 };
@@ -375,6 +375,116 @@ export const getAllSubcategories = async (req, res) => {
       status: false,
       statusCode: StatusCodes.INTERNAL_SERVER_ERROR,
       message: "Failed to fetch subcategories",
+    });
+  }
+};
+
+// Get all subcategories excluding a specific one (for displaying other subcategories)
+// Frontend will pass the user's clicked subcategory ID, and this API will return all other subcategories
+export const getOtherSubcategories = async (req, res) => {
+  try {
+    const { excludeId, subcategoryId, categoryId, status } = req.query;
+
+    // Use excludeId or subcategoryId (both work, subcategoryId is more explicit)
+    // This is the subcategory ID that user clicked on - we will exclude it from results
+    const excludeSubcategoryId = excludeId || subcategoryId;
+
+    if (!excludeSubcategoryId) {
+      return apiResponse({
+        res,
+        status: false,
+        statusCode: StatusCodes.BAD_REQUEST,
+        message: "excludeId or subcategoryId query parameter is required",
+      });
+    }
+
+    if (!mongoose.Types.ObjectId.isValid(excludeSubcategoryId)) {
+      return apiResponse({
+        res,
+        status: false,
+        statusCode: StatusCodes.BAD_REQUEST,
+        message: "Invalid excludeId or subcategoryId",
+      });
+    }
+
+    // Build filter: exclude the clicked subcategory and only get active subcategories
+    const filter = {
+      _id: { $ne: new mongoose.Types.ObjectId(excludeSubcategoryId) },
+      status: true, // Always fetch only active subcategories
+    };
+
+    // Optionally filter by categoryId (if you want to show only subcategories from same category)
+    if (categoryId) {
+      if (mongoose.Types.ObjectId.isValid(categoryId)) {
+        filter.categoryId = new mongoose.Types.ObjectId(categoryId);
+      } else {
+        return apiResponse({
+          res,
+          status: false,
+          message: "Invalid categoryId",
+          statusCode: StatusCodes.BAD_REQUEST,
+        });
+      }
+    }
+
+    // Use aggregation pipeline for consistent sorting with getAllSubcategories
+    const pipeline = [
+      { $match: filter },
+      {
+        $addFields: {
+          // Add a field to help sort: 0 for items with order >= 1, 1 for null/0/undefined
+          orderSort: {
+            $cond: [
+              { $and: [{ $ne: ["$order", null] }, { $gte: ["$order", 1] }] },
+              0, // Valid order
+              1, // Invalid/null order
+            ],
+          },
+          // Create a sortable order value (use actual order or large number for items without order)
+          sortOrder: {
+            $cond: [
+              { $and: [{ $ne: ["$order", null] }, { $gte: ["$order", 1] }] },
+              "$order", // Use actual order value for items with valid order
+              999999, // Large number to push items without order to the end
+            ],
+          },
+        },
+      },
+      // Sort: valid orders first (by order ascending), then items without order (by createdAt ascending)
+      { $sort: { orderSort: 1, sortOrder: 1, createdAt: 1 } },
+      // Project only required fields
+      {
+        $project: {
+          _id: 1,
+          categoryId: 1,
+          subcategoryTitle: 1,
+          img_sqr: 1,
+          img_rec: 1,
+          video_sqr: 1,
+          video_rec: 1,
+          status: 1,
+          order: 1,
+        },
+      },
+    ];
+
+    const items = await Subcategory.aggregate(pipeline);
+
+    // Return all subcategories except the one user clicked (only with required fields)
+    return apiResponse({
+      res,
+      status: true,
+      statusCode: StatusCodes.OK,
+      message: "Other subcategories fetched successfully",
+      data: items,
+    });
+  } catch (error) {
+    console.error("getOtherSubcategories error:", error);
+    return apiResponse({
+      res,
+      status: false,
+      statusCode: StatusCodes.INTERNAL_SERVER_ERROR,
+      message: "Failed to fetch other subcategories",
     });
   }
 };
@@ -824,8 +934,12 @@ export const uploadAssetImages = async (req, res) => {
     // Process uploaded files
     // Assets should have their own imageCount (default 1), not inherit from subcategory
     // If imageCount is provided in body, it's for the asset itself
-    const { isPremium = false, imageCount, imagecount, prompt = "" } =
-      req.body || {};
+    const {
+      isPremium = false,
+      imageCount,
+      imagecount,
+      prompt = "",
+    } = req.body || {};
     const finalIsPremium = Boolean(isPremium);
     const finalPrompt = String(prompt || "").trim();
     // For assets, use imageCount from body if provided, otherwise default to 1
@@ -1086,8 +1200,12 @@ export const manageSubcategoryAssets = async (req, res) => {
     }
 
     // Assets should have their own imageCount (default 1), not inherit from subcategory
-    const { isPremium = false, imageCount, imagecount, prompt = "" } =
-      req.body || {};
+    const {
+      isPremium = false,
+      imageCount,
+      imagecount,
+      prompt = "",
+    } = req.body || {};
     const finalIsPremium = Boolean(isPremium);
     const finalPrompt = String(prompt || "").trim();
     // For assets, use imageCount from body if provided, otherwise default to 1
@@ -1526,14 +1644,8 @@ export const toggleSubcategoryPremium = async (req, res) => {
 export const updateAssetImage = async (req, res) => {
   try {
     const { id } = req.params;
-    const {
-      assetId,
-      url,
-      isPremium,
-      imageCount,
-      imagecount,
-      prompt,
-    } = req.body || {};
+    const { assetId, url, isPremium, imageCount, imagecount, prompt } =
+      req.body || {};
 
     if (!mongoose.Types.ObjectId.isValid(id)) {
       return apiResponse({
@@ -1676,6 +1788,7 @@ export const updateAssetImage = async (req, res) => {
 export default {
   createSubcategory,
   getAllSubcategories,
+  getOtherSubcategories,
   getSubcategoryById,
   updateSubcategory,
   deleteSubcategory,
