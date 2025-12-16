@@ -36,6 +36,9 @@ router.get(
   subcategoryController.getAllSubcategoryTitles
 );
 
+// Get other subcategories (exclude the one user clicked) - Client side - Authenticated
+router.get("/others", verifyToken, subcategoryController.getOtherSubcategories);
+
 // Get subcategory assets by ID (Client side - Authenticated)
 // Must be before /:id route to avoid conflict
 router.get(
