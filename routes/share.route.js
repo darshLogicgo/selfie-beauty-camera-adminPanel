@@ -23,5 +23,13 @@ route.get(
   shareController.handleShareDeepLink
 );
 
+// Resolve install reference (called by Android app after install)
+route.get(
+  "/resolve-install-ref",
+  upload.none(),
+  validate(shareValidation.resolveInstallRefValidator),
+  shareController.resolveInstallRef
+);
+
 export default route;
 

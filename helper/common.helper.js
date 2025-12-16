@@ -3,6 +3,7 @@ import jwt from "jsonwebtoken";
 import moment from "moment";
 import UserModel from "../models/user.model.js";
 import firebaseAdmin from "../firebase/config.firebase.js";
+import crypto from "crypto";
 
 // ----------- Pagination -----------
 const paginationDetails = ({ page = 1, totalItems, limit }) => {
@@ -131,6 +132,11 @@ const createId = ({ length = 16 } = {}) => {
   return result;
 };
 
+// ------------- Hash Token (for deferred links) -------------
+const hashToken = (token) => {
+  return crypto.createHash("sha256").update(token).digest("hex");
+};
+
 // ------------- Send FCM Notification -------------
 const sendFCMNotification = async ({ fcmToken, title, description }) => {
   try {
@@ -190,4 +196,5 @@ export default {
   ensureUserId,
   createId,
   sendFCMNotification,
+  hashToken,
 };

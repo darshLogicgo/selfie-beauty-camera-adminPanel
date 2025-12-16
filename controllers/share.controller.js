@@ -4,6 +4,8 @@ import { apiResponse } from "../helper/api-response.helper.js";
 import { StatusCodes } from "http-status-codes";
 import mongoose from "mongoose";
 import Category from "../models/category.model.js";
+import DeferredLink from "../models/deferredLink.model.js";
+import { v4 as uuidv4 } from "uuid";
 
 // Generate Deep Link with JWT Token
 const generateShareLink = async (req, res) => {
@@ -99,7 +101,7 @@ const generateShareLink = async (req, res) => {
 const handleShareDeepLink = async (req, res) => {
   try {
     const { categoryId } = req.params;
-    const { token } = req.query;
+    const { token, appInstalled } = req.query;
 
     if (!token) {
       return res
@@ -144,9 +146,42 @@ const handleShareDeepLink = async (req, res) => {
     const userAgent = req.headers["user-agent"] || "";
     const isAndroid = /android/i.test(userAgent);
 
-    // Generate Android Intent URL
+    // Check if app is installed (via query param or user-agent detection)
+    // If appInstalled=false or not provided, assume app is NOT installed
+    const isAppInstalled = appInstalled === "true" || appInstalled === true;
+
     const baseUrl = config.base_url || config.server_url;
-    const androidPackage = "photo.editor.photoeditor.filtermaster"; // Replace with your actual package name
+    const androidPackage = "photo.editor.photoeditor.filtermaster";
+
+    // If app is NOT installed, create deferred link and redirect to Play Store
+    if (isAndroid && !isAppInstalled) {
+      // Generate unique install reference
+      const installRef = uuidv4();
+
+      // Hash the token (never store raw JWT)
+      const tokenHash = helper.hashToken(token);
+
+      // Create deferred link entry (expires in 30 minutes)
+      const expiresAt = new Date(Date.now() + 30 * 60 * 1000);
+
+      await DeferredLink.create({
+        installRef,
+        categoryId: new mongoose.Types.ObjectId(categoryId),
+        tokenHash,
+        featureTitle,
+        imageId: imageId || null,
+        userId: new mongoose.Types.ObjectId(userId),
+        expiresAt,
+        consumed: false,
+      });
+
+      // Redirect to Play Store with referrer parameter
+      const playStoreUrl = `https://play.google.com/store/apps/details?id=${androidPackage}&referrer=installRef%3D${installRef}`;
+      
+      return res.redirect(playStoreUrl);
+    }
+
+    // App is installed - proceed with normal deep link flow
     const playStoreUrl = `https://play.google.com/store/apps/details?id=${androidPackage}`;
     const encodedPlayStoreUrl = encodeURIComponent(playStoreUrl);
     const androidIntentLink = `intent://share/${categoryId}?token=${token}#Intent;scheme=photoeditor;package=${androidPackage};S.browser_fallback_url=${encodedPlayStoreUrl};end`;
@@ -175,6 +210,80 @@ const handleShareDeepLink = async (req, res) => {
     return res
       .status(StatusCodes.INTERNAL_SERVER_ERROR)
       .send("An error occurred while processing the share link.");
+  }
+};
+
+// Resolve Install Reference (called by Android app after install)
+const resolveInstallRef = async (req, res) => {
+  try {
+    const { installRef } = req.query;
+
+    if (!installRef) {
+      return apiResponse({
+        res,
+        statusCode: StatusCodes.BAD_REQUEST,
+        status: false,
+        message: "Install reference is required",
+        data: null,
+      });
+    }
+
+    // Find the deferred link record
+    const deferredLink = await DeferredLink.findOne({
+      installRef,
+      consumed: false,
+      expiresAt: { $gt: new Date() },
+    });
+
+    if (!deferredLink) {
+      return apiResponse({
+        res,
+        statusCode: StatusCodes.NOT_FOUND,
+        status: false,
+        message: "Deferred link not found or expired",
+        data: null,
+      });
+    }
+
+    // Mark as consumed
+    deferredLink.consumed = true;
+    deferredLink.consumedAt = new Date();
+    await deferredLink.save();
+
+    // Generate a new short-lived token for the app (optional - for security)
+    // You can reissue a token or just return the categoryId
+    const payload = {
+      userId: deferredLink.userId.toString(),
+      categoryId: deferredLink.categoryId.toString(),
+      featureTitle: deferredLink.featureTitle,
+      imageId: deferredLink.imageId || null,
+      timestamp: Date.now(),
+    };
+
+    // Generate new token (valid for 24 hours)
+    const newToken = await helper.generateToken(payload, "24h");
+
+    return apiResponse({
+      res,
+      statusCode: StatusCodes.OK,
+      status: true,
+      message: "Deferred link resolved successfully",
+      data: {
+        categoryId: deferredLink.categoryId.toString(),
+        featureTitle: deferredLink.featureTitle,
+        imageId: deferredLink.imageId,
+        token: newToken,
+      },
+    });
+  } catch (error) {
+    console.error("Error resolving install reference:", error);
+    return apiResponse({
+      res,
+      statusCode: StatusCodes.INTERNAL_SERVER_ERROR,
+      status: false,
+      message: "Failed to resolve install reference",
+      data: null,
+    });
   }
 };
 
@@ -414,5 +523,6 @@ const generateFallbackHTML = (data) => {
 export default {
   generateShareLink,
   handleShareDeepLink,
+  resolveInstallRef,
 };
 

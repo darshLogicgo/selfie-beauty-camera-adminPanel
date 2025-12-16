@@ -21,7 +21,7 @@ connectDB();
 
 helper.sendFCMNotification({
   fcmToken:
-    "f_VLL_6xRDOv-gahvqzSyM:APA91bErxaZS6MUvNgMJ26tlLz20WRMmJPK9B_tgiL0jLBqRAcW_9zU4rzZYBAWdPZwJBeEkp00vTluvJ8-8erbzuXd5q5GUEAPONM3TAAgYBtfDBVrkpKY",
+    "fanhYOkVSjG1P99vwaz4TF:APA91bHRx7p3mF_uA8jChaDEMBOcoezMhZAglIYFWWfWV60oiVYdVthawxP9SkzdlIJhfajkyPMANJh_jme4s_I2G5f9D7afCWXP-tCJL9T8sjG0NcWHcxg",
   title: "Test Notification",
   description: "This is a test notification",
 });

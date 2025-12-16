@@ -11,6 +11,17 @@ const shareValidation = {
       }),
     imageId: Joi.string().optional().allow(null, ""),
   }),
+  resolveInstallRefValidator: Joi.object({
+    installRef: Joi.string()
+      .trim()
+      .required()
+      .uuid()
+      .messages({
+        "any.required": "Install reference is required",
+        "string.empty": "Install reference cannot be empty",
+        "string.guid": "Install reference must be a valid UUID",
+      }),
+  }),
 };
 
 export default shareValidation;
