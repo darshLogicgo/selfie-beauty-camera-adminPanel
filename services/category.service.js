@@ -272,6 +272,62 @@ const getAiWorldCategories = async () => {
     .hint({ isDeleted: 1, status: 1, isAiWorld: 1, aiWorldOrder: 1 }); // Use index hint
 };
 
+/**
+ * Get maximum More order number from existing categories (optimized)
+ * @param {Object} filter - Optional filter (default: isDeleted: false, isMore: true)
+ * @returns {Promise<number>} - Maximum More order number (default: -1 if no categories)
+ */
+const getMaxMoreOrder = async (filter = { isDeleted: false, isMore: true }) => {
+  // Query to get max moreOrder - MongoDB will automatically use the best index
+  // Use appropriate index hint based on filter
+  const query = Category.findOne(filter)
+    .sort({ moreOrder: -1 })
+    .select({ moreOrder: 1 })
+    .lean()
+    .limit(1);
+
+  // Use index hint based on whether isMore is in filter
+  if (filter.isMore !== undefined) {
+    query.hint({ isDeleted: 1, isMore: 1, moreOrder: -1 });
+  } else {
+    query.hint({ isDeleted: 1, moreOrder: -1 });
+  }
+
+  const result = await query;
+  return result?.moreOrder ?? -1;
+};
+
+/**
+ * Get active More categories (optimized with lean and select)
+ * @returns {Promise<Array>} - Active More categories
+ */
+const getMoreCategories = async () => {
+  return Category.find({
+    isDeleted: false,
+    status: true,
+    isMore: true,
+  })
+    .select({
+      name: 1,
+      img_sqr: 1,
+      img_rec: 1,
+      video_sqr: 1,
+      video_rec: 1,
+      status: 1,
+      order: 1,
+      isMore: 1,
+      moreOrder: 1,
+      imageCount: 1,
+      isPremium: 1,
+      prompt: 1,
+      createdAt: 1,
+      updatedAt: 1,
+    })
+    .sort({ moreOrder: 1, createdAt: 1 }) // Primary: moreOrder (ascending), Secondary: createdAt for consistency
+    .lean()
+    .hint({ isDeleted: 1, status: 1, isMore: 1, moreOrder: 1 }); // Use index hint
+};
+
 export default {
   find,
   findOne,
@@ -289,4 +345,6 @@ export default {
   getTrendingCategories,
   getMaxAiWorldOrder,
   getAiWorldCategories,
+  getMaxMoreOrder,
+  getMoreCategories,
 };

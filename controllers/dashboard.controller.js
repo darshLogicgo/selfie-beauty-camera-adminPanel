@@ -48,23 +48,23 @@ const getDashboardStats = async (req, res) => {
             from: userCollectionName, // Use actual collection name
             localField: "userId",
             foreignField: "_id",
-            as: "user"
-          }
+            as: "user",
+          },
         },
         // Filter out documents where user doesn't exist or is deleted
         {
           $match: {
             "user.isDeleted": { $ne: true },
-            "user.0": { $exists: true } // Ensure user exists
-          }
+            "user.0": { $exists: true }, // Ensure user exists
+          },
         },
         // Unwind the categories array to get individual category entries
         { $unwind: "$categories" },
         // Filter out categories with null or undefined categoryId
-        { 
-          $match: { 
-            "categories.categoryId": { $ne: null, $exists: true }
-          } 
+        {
+          $match: {
+            "categories.categoryId": { $ne: null, $exists: true },
+          },
         },
         // Group by categoryId and count distinct users
         {
@@ -152,4 +152,3 @@ const getDashboardStats = async (req, res) => {
 export default {
   getDashboardStats,
 };
-

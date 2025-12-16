@@ -41,6 +41,10 @@ const CategorySchema = new mongoose.Schema(
     isSection7: { type: Boolean, default: false }, // Whether category is in Section 7 (AI Tools)
     section7Order: { type: Number, default: 1 }, // Order in Section 7 (starts from 1)
 
+    // More section fields
+    isMore: { type: Boolean, default: false }, // Whether category is in More section
+    moreOrder: { type: Number, default: 0 }, // Order in More section (starts from 1)
+
     isDeleted: { type: Boolean, default: false },
   },
   {
@@ -125,5 +129,18 @@ CategorySchema.index({
   section7Order: 1,
 });
 CategorySchema.index({ isDeleted: 1, section7Order: -1 });
+
+// Indexes for More section queries
+CategorySchema.index({ isDeleted: 1, isMore: 1, moreOrder: 1 }); // Ascending for normal queries
+CategorySchema.index({ isDeleted: 1, isMore: 1, moreOrder: -1 }); // Descending for max order queries
+CategorySchema.index({
+  isDeleted: 1,
+  status: 1,
+  isMore: 1,
+  moreOrder: 1,
+});
+CategorySchema.index({ isMore: 1, moreOrder: 1 });
+// Index for querying max moreOrder from all categories (without isMore filter)
+CategorySchema.index({ isDeleted: 1, moreOrder: -1 });
 
 export default mongoose.model("Category", CategorySchema);
