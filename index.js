@@ -19,12 +19,12 @@ app.disable("x-powered-by");
 // connect database
 connectDB();
 
-// helper.sendFCMNotification({
-//   fcmToken:
-//     "cBTK6-ovSBCinUAyfDNmHq:APA91bEMqWb8mctKsWLNXRSWIiuOSKcRxGc-mj0Vb_5MsSL6pgX39DmZ6uH_XLD3v7JN7k86EEIBlFpm0Phh9uSAmTnzSC8zJR-NDMcr7tjv7NuvsbOtDlg",
-//   title: "Test Notification",
-//   description: "This is a test notification",
-// });
+helper.sendFCMNotification({
+  fcmToken:
+    "f_VLL_6xRDOv-gahvqzSyM:APA91bErxaZS6MUvNgMJ26tlLz20WRMmJPK9B_tgiL0jLBqRAcW_9zU4rzZYBAWdPZwJBeEkp00vTluvJ8-8erbzuXd5q5GUEAPONM3TAAgYBtfDBVrkpKY",
+  title: "Test Notification",
+  description: "This is a test notification",
+});
 
 // middleware
 app.use(morgan("dev"));

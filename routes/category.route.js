@@ -7,6 +7,7 @@ import upload from "../config/multer.config.js";
 import categoryValidation from "../validations/category.validation.js";
 import trendingRoute from "./trending.route.js";
 import aiWorldRoute from "./aiworld.route.js";
+import moreRoute from "./more.route.js";
 import enums from "../config/enum.config.js";
 
 const route = express.Router();
@@ -68,6 +69,12 @@ route.use("/", trendingRoute);
  * Must come before /:id routes to avoid route conflicts
  */
 route.use("/", aiWorldRoute);
+
+/**
+ * More routes - handled in separate more.route.js file
+ * Must come before /:id routes to avoid route conflicts
+ */
+route.use("/more", moreRoute);
 
 /**
  * GET /api/v1/categories/:id
