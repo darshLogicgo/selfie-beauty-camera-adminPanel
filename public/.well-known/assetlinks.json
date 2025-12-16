@@ -1,0 +1,14 @@
+[
+  {
+    "relation": [
+      "delegate_permission/common.handle_all_urls"
+    ],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "photo.editor.photoeditor.filtermaster",
+      "sha256_cert_fingerprints": [
+        "E9:F6:94:8E:25:B5:DE:7D:97:B3:98:F6:B9:A7:0E:C8:FC:47:BD:2F:84:D5:C3:D0:08:BB:0C:7B:0F:D6:F9:49"
+      ]
+    }
+  }
+]
