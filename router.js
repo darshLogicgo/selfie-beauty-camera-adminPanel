@@ -11,6 +11,7 @@ import uninstallRoute from "./routes/uninstall.route.js";
 import feedbackRoute from "./routes/feedback.route.js";
 import dashboardRoute from "./routes/dashboard.route.js";
 import shareRoute from "./routes/share.route.js";
+import subscriptionRoute from "./routes/subscription.route.js";
 
 export default {
   authRoute,
@@ -25,4 +26,5 @@ export default {
   feedbackRoute,
   shareRoute,
   dashboardRoute,
+  subscriptionRoute,
 };

@@ -73,6 +73,9 @@ app.use("/api/v1/share", router.shareRoute);
 // Dashboard Routes
 app.use("/api/v1/dashboard", router.dashboardRoute);
 
+// Subscription Routes
+app.use("/api/v1/subscription", router.subscriptionRoute);
+
 // Initialize Socket.IO
 initializeSocket(server);
 

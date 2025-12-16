@@ -36,8 +36,8 @@ const getDashboardStats = async (req, res) => {
       // Total users (excluding deleted)
       userServices.countDocuments({ isDeleted: false }),
 
-      // Subscribed users (isSubscribed: true, excluding deleted)
-      userServices.countDocuments({ isDeleted: false, isSubscribed: true }),
+      // Subscribed users (isSubscribe: true, excluding deleted)
+      userServices.countDocuments({ isDeleted: false, isSubscribe: true }),
 
       // Most used categories - aggregate from mediaclicks model
       // Count unique users per category (only count users that exist and are not deleted)
