@@ -21,8 +21,9 @@ route.get(
 );
 
 /**
- * GET /api/v1/categories/more/list
+ * GET /api/v1/categories/more/list?excludeId=...
  * Get More categories (Client side - sorted by moreOrder)
+ * Optional: excludeId query parameter to exclude a specific category
  */
 route.get("/list", verifyToken, moreController.getMoreCategories);
 
@@ -52,4 +53,3 @@ route.patch(
 );
 
 export default route;
-

@@ -66,18 +66,38 @@ const getAllCategoriesForMore = async (req, res) => {
 /**
  * Get More categories (Client side)
  * Returns only active categories that are marked as More, sorted by moreOrder
- * @route GET /api/v1/categories/more/list
+ * Optional: excludeId query parameter to exclude a specific category
+ * @route GET /api/v1/categories/more/list?excludeId=...
  * @access Private
  */
 const getMoreCategories = async (req, res) => {
   try {
+    const { excludeId } = req.query;
+
+    // Build filter condition
+    const filter = {
+      isDeleted: false,
+      status: true,
+      isMore: true,
+    };
+
+    // If excludeId is provided and valid, exclude that category
+    if (excludeId) {
+      if (!mongoose.Types.ObjectId.isValid(excludeId)) {
+        return apiResponse({
+          res,
+          statusCode: StatusCodes.BAD_REQUEST,
+          status: false,
+          message: "Invalid excludeId format",
+          data: null,
+        });
+      }
+      filter._id = { $ne: new mongoose.Types.ObjectId(excludeId) };
+    }
+
     // Find only active categories that are marked as More, sorted by moreOrder
     const moreCategories = await categoryService
-      .find({
-        isDeleted: false,
-        status: true,
-        isMore: true,
-      })
+      .find(filter)
       .select({
         name: 1,
         img_sqr: 1,
