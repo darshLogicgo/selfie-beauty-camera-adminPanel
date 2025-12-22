@@ -114,6 +114,17 @@ const createCategory = async (req, res) => {
     // Order is assigned even if isAiWorld is false, so it's ready when admin toggles it later
     payload.aiWorldOrder = maxAiWorldOrder === -1 ? 1 : maxAiWorldOrder + 1;
 
+    // Always assign User Preference order (regardless of isUserPreference status)
+    // Query max userPreferenceOrder from ALL categories (not just User Preference ones) to ensure unique incrementing order
+    const maxUserPreferenceOrder = await categoryService.getMaxUserPreferenceOrder({
+      isDeleted: false,
+      // Don't filter by isUserPreference - get max from all categories to ensure unique order
+    });
+    payload.isUserPreference = false; // Default to false, admin can toggle later
+    // Assign User Preference order: if no categories exist, start with 1, otherwise increment
+    // Order is assigned even if isUserPreference is false, so it's ready when admin toggles it later
+    payload.userPreferenceOrder = maxUserPreferenceOrder === -1 ? 1 : maxUserPreferenceOrder + 1;
+
     // Always assign home section orders (regardless of section status)
     // Query max orders from ALL categories to ensure unique incrementing order
     const [
@@ -282,6 +293,8 @@ const getCategories = async (req, res) => {
         section6Order: 1,
         isSection7: 1,
         section7Order: 1,
+        isUserPreference: 1,
+        userPreferenceOrder: 1,
         updatedAt: 1,
         createdAt: 1,
       })
@@ -458,6 +471,10 @@ const updateCategory = async (req, res) => {
     if (isPremium !== undefined) updateData.isPremium = isPremium;
     if (imageCount !== undefined) updateData.imageCount = Number(imageCount);
     if (prompt !== undefined) updateData.prompt = prompt.trim();
+    if (req.body.isUserPreference !== undefined)
+      updateData.isUserPreference = req.body.isUserPreference;
+    if (req.body.userPreferenceOrder !== undefined)
+      updateData.userPreferenceOrder = Number(req.body.userPreferenceOrder);
 
     // Handle media file updates and null assignments
     const updatePromises = [];
@@ -1063,6 +1080,7 @@ const toggleCategoryPremium = async (req, res) => {
     });
   }
 };
+
 
 export default {
   createCategory,

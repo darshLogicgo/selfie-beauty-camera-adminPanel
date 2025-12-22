@@ -41,6 +41,10 @@ const CategorySchema = new mongoose.Schema(
     isSection7: { type: Boolean, default: false }, // Whether category is in Section 7 (AI Tools)
     section7Order: { type: Number, default: 1 }, // Order in Section 7 (starts from 1)
 
+    // User Preference section fields
+    isUserPreference: { type: Boolean, default: false }, // Whether category is in user preference section
+    userPreferenceOrder: { type: Number, default: 0 }, // Order in user preference section (starts from 1)
+
     isDeleted: { type: Boolean, default: false },
   },
   {
@@ -125,5 +129,18 @@ CategorySchema.index({
   section7Order: 1,
 });
 CategorySchema.index({ isDeleted: 1, section7Order: -1 });
+
+// Indexes for User Preference queries
+CategorySchema.index({ isDeleted: 1, isUserPreference: 1, userPreferenceOrder: 1 }); // Ascending for normal queries
+CategorySchema.index({ isDeleted: 1, isUserPreference: 1, userPreferenceOrder: -1 }); // Descending for max order queries
+CategorySchema.index({
+  isDeleted: 1,
+  status: 1,
+  isUserPreference: 1,
+  userPreferenceOrder: 1,
+});
+CategorySchema.index({ isUserPreference: 1, userPreferenceOrder: 1 });
+// Index for querying max userPreferenceOrder from all categories (without isUserPreference filter)
+CategorySchema.index({ isDeleted: 1, userPreferenceOrder: -1 });
 
 export default mongoose.model("Category", CategorySchema);

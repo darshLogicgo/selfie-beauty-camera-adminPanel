@@ -3,6 +3,7 @@ import userRoute from "./routes/user.route.js";
 import categoryRoute from "./routes/category.route.js";
 import trendingRoute from "./routes/trending.route.js";
 import aiWorldRoute from "./routes/aiworld.route.js";
+import userPreferenceRoute from "./routes/user-preference.route.js";
 
 import subCategory from "./routes/subcategory.route.js";
 import aiPhotoRoute from "./routes/aiphoto.route.js";
@@ -19,6 +20,7 @@ export default {
   categoryRoute,
   trendingRoute,
   aiWorldRoute,
+  userPreferenceRoute,
   subCategory,
   aiPhotoRoute,
   homeRoute,
