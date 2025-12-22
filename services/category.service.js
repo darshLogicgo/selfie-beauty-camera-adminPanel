@@ -563,10 +563,8 @@ const reorderCategory = async (categoryId, newOrder) => {
     session.endSession();
     throw error;
   }
- * Get maximum More order number from existing categories (optimized)
- * @param {Object} filter - Optional filter (default: isDeleted: false, isMore: true)
- * @returns {Promise<number>} - Maximum More order number (default: -1 if no categories)
- */
+};
+
 const getMaxMoreOrder = async (filter = { isDeleted: false, isMore: true }) => {
   // Query to get max moreOrder - MongoDB will automatically use the best index
   // Use appropriate index hint based on filter
