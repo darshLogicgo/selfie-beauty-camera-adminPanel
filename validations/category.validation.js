@@ -112,6 +112,14 @@ const updateCategoryValidation = {
         "string.base": "Prompt must be a string",
       }),
 
+      // User Preference fields
+      isUserPreference: Joi.boolean().optional(),
+      userPreferenceOrder: Joi.number().integer().min(0).optional().messages({
+        "number.base": "User preference order must be a number",
+        "number.integer": "User preference order must be an integer",
+        "number.min": "User preference order must be 0 or greater",
+      }),
+
       // Allow file field names in body (they're handled separately via multer in req.files)
       // These are optional and can be set to null to remove/clear media
       img_sqr: Joi.any().optional().allow(null, "null", ""),
@@ -184,9 +192,60 @@ const deleteCategoryValidation = {
   }),
 };
 
+/**
+ * Set User Preference Validation Schema
+ * Allows bulk setting of isUserPreference and userPreferenceOrder for multiple categories
+ */
+const setUserPreferenceValidation = {
+  body: Joi.object()
+    .keys({
+      categories: Joi.array()
+        .items(
+          Joi.object({
+            _id: Joi.string()
+              .regex(/^[0-9a-fA-F]{24}$/)
+              .required()
+              .messages({
+                "string.pattern.base": "Invalid category ID format",
+                "any.required": "Category ID is required",
+              }),
+            isUserPreference: Joi.boolean().optional().messages({
+              "boolean.base": "isUserPreference must be a boolean",
+            }),
+            userPreferenceOrder: Joi.number()
+              .integer()
+              .min(0)
+              .optional()
+              .messages({
+                "number.base": "User preference order must be a number",
+                "number.integer": "User preference order must be an integer",
+                "number.min": "User preference order must be 0 or greater",
+              }),
+          })
+            .or("isUserPreference", "userPreferenceOrder")
+            .messages({
+              "object.missing":
+                "At least one of isUserPreference or userPreferenceOrder must be provided",
+            })
+        )
+        .min(1)
+        .required()
+        .messages({
+          "array.base": "Categories must be an array",
+          "array.min": "At least one category must be provided",
+          "any.required": "Categories array is required",
+        }),
+    })
+    .required()
+    .messages({
+      "object.base": "Request body must be a valid object",
+    }),
+};
+
 export default {
   createCategoryValidation,
   updateCategoryValidation,
   reorderCategoriesValidation,
   deleteCategoryValidation,
+  setUserPreferenceValidation,
 };

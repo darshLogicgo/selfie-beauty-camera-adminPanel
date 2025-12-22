@@ -66,6 +66,12 @@ const registerByEmail = async (req, res) => {
         otpExpiresAt,
         username,
         isVerified: false,
+        // Initialize subscription fields for new users
+        subscriptionAppUserId: null,
+        isSubscribe: false,
+        subscriptionType: null,
+        subscriptionStart: null,
+        subscriptionEnd: null,
       };
       if (deviceId) newUser.deviceId = deviceId;
 
@@ -131,6 +137,12 @@ const registerByMobile = async (req, res) => {
         otpExpiresAt,
         username,
         isVerified: false,
+        // Initialize subscription fields for new users
+        subscriptionAppUserId: null,
+        isSubscribe: false,
+        subscriptionType: null,
+        subscriptionStart: null,
+        subscriptionEnd: null,
       };
       if (deviceId) newUser.deviceId = deviceId;
 
@@ -753,6 +765,12 @@ const loginByGoogle = async (req, res) => {
           providerId: googleId,
           role: enums.userRoleEnum.USER,
           isVerified: true,
+          // Initialize subscription fields for new users
+          subscriptionAppUserId: null,
+          isSubscribe: false,
+          subscriptionType: null,
+          subscriptionStart: null,
+          subscriptionEnd: null,
         };
         if (deviceId) newUserData.deviceId = deviceId;
         user = await User.create(newUserData);
@@ -841,6 +859,12 @@ const loginByApple = async (req, res) => {
           providerId: appleId,
           role: enums.userRoleEnum.USER,
           isVerified: true,
+          // Initialize subscription fields for new users
+          subscriptionAppUserId: null,
+          isSubscribe: false,
+          subscriptionType: null,
+          subscriptionStart: null,
+          subscriptionEnd: null,
         };
         if (deviceId) newUserData.deviceId = deviceId;
         user = await User.create(newUserData);
@@ -935,6 +959,12 @@ const guestLogin = async (req, res) => {
         isVerified: true,
         role: enums.userRoleEnum.USER,
         provider: enums.authProviderEnum.EMAIL,
+        // Initialize subscription fields for new users
+        subscriptionAppUserId: null,
+        isSubscribe: false,
+        subscriptionType: null,
+        subscriptionStart: null,
+        subscriptionEnd: null,
       };
 
       if (fcmToken) {

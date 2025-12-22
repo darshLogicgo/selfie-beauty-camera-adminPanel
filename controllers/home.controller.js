@@ -3,6 +3,7 @@ import Category from "../models/category.model.js";
 import Subcategory from "../models/subcategory.js";
 import HomeSettings from "../models/homeSettings.model.js";
 import MediaClick from "../models/media_click.model.js";
+import UserPreference from "../models/user-preference.model.js";
 import categoryService from "../services/category.service.js";
 import { apiResponse } from "../helper/api-response.helper.js";
 import helper from "../helper/common.helper.js";
@@ -30,20 +31,75 @@ export const getHomeData = async (req, res) => {
     const userId = req.user?._id || req.user?.id;
     let userClickData = null;
     let userClickedCategoryIds = new Set();
+    let userPreferenceMap = new Map(); // Map of categoryId to userPreferenceOrder
+    let clickCountMap = new Map(); // Map of categoryId to click_count (for Section 2 sorting)
 
     // Fetch user click data if user is logged in
     if (userId) {
       try {
-        userClickData = await MediaClick.findOne({ userId }).lean();
+        // Ensure userId is a valid ObjectId for query
+        let userObjectIdForClick;
+        if (userId instanceof mongoose.Types.ObjectId) {
+          userObjectIdForClick = userId;
+        } else if (mongoose.Types.ObjectId.isValid(userId)) {
+          userObjectIdForClick = new mongoose.Types.ObjectId(userId);
+        } else {
+          console.error(`[Home API] Invalid userId format for click data: ${userId}`);
+          throw new Error(`Invalid userId format: ${userId}`);
+        }
+        
+        userClickData = await MediaClick.findOne({ userId: userObjectIdForClick }).lean();
+        
         if (userClickData && userClickData.categories) {
           userClickData.categories.forEach((cat) => {
             if (cat.categoryId) {
-              userClickedCategoryIds.add(cat.categoryId.toString());
+              const catIdStr = cat.categoryId.toString();
+              userClickedCategoryIds.add(catIdStr);
+              // Store click count for Section 2 sorting
+              clickCountMap.set(catIdStr, cat.click_count || 0);
             }
           });
         }
       } catch (error) {
         console.error("Error fetching user click data:", error);
+        console.error("Error details:", error.message, error.stack);
+        // Continue with default behavior if error occurs
+      }
+
+      // Fetch user preferences if user is logged in
+      try {
+        // Ensure userId is a valid ObjectId
+        let userObjectId;
+        if (userId instanceof mongoose.Types.ObjectId) {
+          userObjectId = userId;
+        } else if (mongoose.Types.ObjectId.isValid(userId)) {
+          userObjectId = new mongoose.Types.ObjectId(userId);
+        } else {
+          console.error(`[Home API] Invalid userId format: ${userId}`);
+          throw new Error(`Invalid userId format: ${userId}`);
+        }
+        
+        const userPreferences = await UserPreference.find({
+          userId: userObjectId,
+          isDeleted: false,
+        })
+          .select({ categoryId: 1, order: 1 })
+          .lean()
+          .sort({ order: 1 }); // Sort by order to ensure consistent ordering
+
+        // Create a map of categoryId to userPreferenceOrder
+        // Note: order can be 0, so we use nullish coalescing instead of || to preserve 0 values
+        userPreferences.forEach((pref) => {
+          if (pref.categoryId) {
+            userPreferenceMap.set(
+              pref.categoryId.toString(),
+              pref.order ?? 0
+            );
+          }
+        });
+        
+      } catch (error) {
+        console.error("Error fetching user preferences:", error);
         // Continue with default behavior if error occurs
       }
     }
@@ -84,7 +140,7 @@ export const getHomeData = async (req, res) => {
       section1Query.isSection1 = true;
     }
 
-    // Build Section 2 query - include categories user clicked even if isSection2 is false
+    // Build Section 2 query - include categories user clicked AND user preferences AND categories with click counts even if isSection2 is false
     // Also include priority categoryId from query if provided
     const section2Query = {
       isDeleted: false,
@@ -101,7 +157,7 @@ export const getHomeData = async (req, res) => {
       });
     }
 
-    // Add user clicked categories
+    // Add user clicked categories (these have click counts)
     if (userClickedCategoryIds.size > 0) {
       section2OrConditions.push({
         _id: {
@@ -112,8 +168,58 @@ export const getHomeData = async (req, res) => {
       });
     }
 
+    // Add categories with click counts (even if not in userClickedCategoryIds - for safety)
+    if (clickCountMap.size > 0) {
+      const clickCountCategoryIds = Array.from(clickCountMap.keys());
+      // Only add if not already in the conditions
+      const existingIds = new Set();
+      section2OrConditions.forEach(condition => {
+        if (condition._id && condition._id.$in) {
+          condition._id.$in.forEach(id => existingIds.add(id.toString()));
+        } else if (condition._id) {
+          existingIds.add(condition._id.toString());
+        }
+      });
+      
+      const newClickCountIds = clickCountCategoryIds.filter(id => !existingIds.has(id));
+      if (newClickCountIds.length > 0) {
+        section2OrConditions.push({
+          _id: {
+            $in: newClickCountIds.map(
+              (id) => new mongoose.Types.ObjectId(id)
+            ),
+          },
+        });
+      }
+    }
+
+    // Add user preference categories (even if isSection2 is false)
+    if (userPreferenceMap.size > 0) {
+      const userPreferenceCategoryIds = Array.from(userPreferenceMap.keys());
+      // Only add if not already in the conditions
+      const existingIds = new Set();
+      section2OrConditions.forEach(condition => {
+        if (condition._id && condition._id.$in) {
+          condition._id.$in.forEach(id => existingIds.add(id.toString()));
+        } else if (condition._id) {
+          existingIds.add(condition._id.toString());
+        }
+      });
+      
+      const newPreferenceIds = userPreferenceCategoryIds.filter(id => !existingIds.has(id));
+      if (newPreferenceIds.length > 0) {
+        section2OrConditions.push({
+          _id: {
+            $in: newPreferenceIds.map(
+              (id) => new mongoose.Types.ObjectId(id)
+            ),
+          },
+        });
+      }
+    }
+
     // If we have any special conditions, use $or, otherwise default to isSection2: true
-    if (section2OrConditions.length > 1 || priorityCategoryId) {
+    if (section2OrConditions.length > 1 || priorityCategoryId || userPreferenceMap.size > 0 || clickCountMap.size > 0) {
       section2Query.$or = section2OrConditions;
     } else {
       // Default: only show categories with isSection2: true
@@ -167,6 +273,8 @@ export const getHomeData = async (req, res) => {
           prompt: 1,
           section2Order: 1,
           isSection2: 1,
+          userPreferenceOrder: 1,
+          isUserPreference: 1,
           createdAt: 1,
           updatedAt: 1,
         })
@@ -414,7 +522,7 @@ export const getHomeData = async (req, res) => {
       sortedSection1Categories = otherCategories;
     }
 
-    // Sort Section 2 categories based on priority categoryId and user click data
+    // Sort Section 2 categories based on priority categoryId and user preferences
     let sortedSection2Categories = section2Categories;
 
     // Separate priority category (from query) and other categories for Section 2
@@ -451,6 +559,8 @@ export const getHomeData = async (req, res) => {
               prompt: 1,
               section2Order: 1,
               isSection2: 1,
+              userPreferenceOrder: 1,
+              isUserPreference: 1,
               createdAt: 1,
               updatedAt: 1,
             })
@@ -470,61 +580,56 @@ export const getHomeData = async (req, res) => {
       otherCategories2 = section2Categories;
     }
 
-    // Sort other categories based on user click data for Section 2
-    if (
-      userId &&
-      userClickData &&
-      userClickData.categories &&
-      userClickData.categories.length > 0
-    ) {
-      // Create a map of categoryId to click_count for quick lookup
-      const clickCountMap2 = new Map();
-      userClickData.categories.forEach((cat) => {
-        if (cat.categoryId) {
-          clickCountMap2.set(cat.categoryId.toString(), cat.click_count || 0);
+    // Sort Section 2 categories with priority-based ordering:
+    // 1. First: Categories with deeplink (priorityCategoryId) - already handled above
+    // 2. Second: Categories with user preference (sorted by user's preference order from UserPreference model)
+    // 3. Third: Categories sorted by click count (descending - higher clicks first)
+    // 4. Fourth: Categories sorted by admin order (section2Order)
+    
+    otherCategories2 = [...otherCategories2].sort((a, b) => {
+      const aId = a._id.toString();
+      const bId = b._id.toString();
+      
+      // Check if categories are in user's preferences
+      const aHasUserPreference = userPreferenceMap.has(aId);
+      const bHasUserPreference = userPreferenceMap.has(bId);
+      
+      // Priority 1: Categories with user preference come first
+      if (aHasUserPreference && !bHasUserPreference) {
+        return -1; // a comes first
+      }
+      if (!aHasUserPreference && bHasUserPreference) {
+        return 1; // b comes first
+      }
+      
+      // Priority 2: If both have user preference, sort by user's preference order (from UserPreference model)
+      if (aHasUserPreference && bHasUserPreference) {
+        const aUserOrder = userPreferenceMap.get(aId) ?? 999999;
+        const bUserOrder = userPreferenceMap.get(bId) ?? 999999;
+        if (aUserOrder !== bUserOrder) {
+          return aUserOrder - bUserOrder; // Ascending order
         }
-      });
-
-      // Sort categories:
-      // 1. First by click_count (descending - highest first)
-      // 2. If click_count is same, user-clicked categories first, then by section2Order
-      otherCategories2 = [...otherCategories2].sort((a, b) => {
-        const aId = a._id.toString();
-        const bId = b._id.toString();
-        const aClickCount = clickCountMap2.get(aId) || 0;
-        const bClickCount = clickCountMap2.get(bId) || 0;
-        const aIsClicked = clickCountMap2.has(aId);
-        const bIsClicked = clickCountMap2.has(bId);
-
-        // Primary sort: by click count (descending - highest first)
-        if (aClickCount !== bClickCount) {
-          return bClickCount - aClickCount;
-        }
-
-        // Secondary sort: if same click count, user-clicked categories first
-        // If a is clicked and b is not, a comes first (return -1)
-        // If b is clicked and a is not, b comes first (return 1)
-        if (aIsClicked && !bIsClicked) {
-          return -1;
-        }
-        if (!aIsClicked && bIsClicked) {
-          return 1;
-        }
-
-        // Tertiary sort: if both clicked or both not clicked, use section2Order
-        const aOrder = a.section2Order || 999999;
-        const bOrder = b.section2Order || 999999;
-        if (aOrder !== bOrder) {
-          return aOrder - bOrder;
-        }
-
-        // Final sort: by createdAt for consistency
-        return new Date(a.createdAt) - new Date(b.createdAt);
-      });
-    } else {
-      // Default sorting: by section2Order (already sorted from query)
-      // No need to re-sort if no click data
-    }
+      }
+      
+      // Priority 3: Sort by click count (descending - higher clicks first)
+      // This applies to all categories (both with and without user preferences)
+      const aClickCount = clickCountMap.get(aId) || 0;
+      const bClickCount = clickCountMap.get(bId) || 0;
+      
+      if (aClickCount !== bClickCount) {
+        return bClickCount - aClickCount; // Descending order (higher clicks first)
+      }
+      
+      // Priority 4: If click counts are same, sort by admin order (section2Order)
+      const aAdminOrder = a.section2Order || 999999;
+      const bAdminOrder = b.section2Order || 999999;
+      if (aAdminOrder !== bAdminOrder) {
+        return aAdminOrder - bAdminOrder; // Ascending order
+      }
+      
+      // Final sort: by createdAt for consistency
+      return new Date(a.createdAt) - new Date(b.createdAt);
+    });
 
     // Combine: priority category first, then other categories for Section 2
     if (priorityCategory2) {
@@ -541,7 +646,7 @@ export const getHomeData = async (req, res) => {
       },
       section2: {
         title: "AI Face Swap",
-        categories: sortedSection2Categories, // Category Showcase (sorted by click count if user has data)
+        categories: sortedSection2Categories, // Category Showcase (sorted by user preferences if user has data)
       },
       section3: {
         title: "Ai Face Swap",

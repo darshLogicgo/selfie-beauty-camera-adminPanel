@@ -72,6 +72,7 @@ app.use("/api/v1/user", router.userRoute);
 app.use("/api/v1/categories", router.categoryRoute);
 app.use("/api/v1/trending", router.trendingRoute);
 app.use("/api/v1/ai-world", router.aiWorldRoute);
+app.use("/api/v1/user-preference", router.userPreferenceRoute);
 
 // Subcategory Routes
 app.use("/api/v1/subcategory", router.subCategory);
@@ -93,6 +94,9 @@ app.use("/api/v1/share", router.shareRoute);
 
 // Dashboard Routes
 app.use("/api/v1/dashboard", router.dashboardRoute);
+
+// Subscription Routes
+app.use("/api/v1/subscription", router.subscriptionRoute);
 
 // Initialize Socket.IO
 initializeSocket(server);

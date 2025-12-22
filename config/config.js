@@ -47,6 +47,10 @@ const envVarsSchema = Joi.object({
 
   SUPPORT_EMAIL: Joi.string().optional(),
   SUPPORT_PASSWORD: Joi.string().optional(),
+
+  REVENUECAT_API_KEY: Joi.string().optional(),
+  REVENUECAT_API_VERSION: Joi.string().valid("v1", "v2").optional().default("v1"),
+  REVENUECAT_WEBHOOK_SECRET: Joi.string().optional(),
 })
   .unknown()
   .prefs({ errors: { label: "key" } });
@@ -110,4 +114,10 @@ export default {
     from: envVars.EMAIL_FROM,
   },
   serverBaseUrl: envVars.SERVER_BASE_URL,
+  revenuecat: {
+    apiKey: envVars.REVENUECAT_API_KEY || "",
+    apiVersion: envVars.REVENUECAT_API_VERSION || "v1",
+    apiBaseUrl: "https://api.revenuecat.com",
+    webhookSecret: envVars.REVENUECAT_WEBHOOK_SECRET || "",
+  },
 };

@@ -1,3 +1,4 @@
+import mongoose from "mongoose";
 import Category from "../models/category.model.js";
 import helper from "../helper/common.helper.js";
 
@@ -273,6 +274,295 @@ const getAiWorldCategories = async () => {
 };
 
 /**
+ * Get maximum User Preference order number from existing categories (optimized)
+ * @param {Object} filter - Optional filter (default: isDeleted: false, isUserPreference: true)
+ * @returns {Promise<number>} - Maximum User Preference order number (default: -1 if no categories)
+ */
+const getMaxUserPreferenceOrder = async (
+  filter = { isDeleted: false, isUserPreference: true }
+) => {
+  // Query to get max userPreferenceOrder - MongoDB will automatically use the best index
+  // Use appropriate index hint based on filter
+  const query = Category.findOne(filter)
+    .sort({ userPreferenceOrder: -1 })
+    .select({ userPreferenceOrder: 1 })
+    .lean()
+    .limit(1);
+
+  // Use index hint based on whether isUserPreference is in filter
+  if (filter.isUserPreference !== undefined) {
+    query.hint({ isDeleted: 1, isUserPreference: 1, userPreferenceOrder: -1 });
+  } else {
+    query.hint({ isDeleted: 1, userPreferenceOrder: -1 });
+  }
+
+  const result = await query;
+  return result?.userPreferenceOrder ?? -1;
+};
+
+/**
+ * Get ALL active categories sorted by userPreferenceOrder
+ * Returns ALL categories where status: true (regardless of isUserPreference)
+ * Sorted by userPreferenceOrder (1, 2, 3...), then by createdAt
+ * @returns {Promise<Array>} - All active categories sorted by userPreferenceOrder
+ */
+const getUserPreferenceCategories = async () => {
+  // Use aggregation to handle missing/null values and properly sort
+  return Category.aggregate([
+    {
+      $match: {
+        isDeleted: false,
+        status: true, // Return ALL categories where status: true (regardless of isUserPreference)
+      },
+    },
+    {
+      $addFields: {
+        // Normalize userPreferenceOrder: treat missing/null as 0
+        userPreferenceOrder: {
+          $ifNull: ["$userPreferenceOrder", 0],
+        },
+        // Normalize isUserPreference: treat missing/null as false
+        isUserPreference: {
+          $ifNull: ["$isUserPreference", false],
+        },
+        // Create sort order: 
+        // - Categories with valid order (>=1) use actual order (1, 2, 3...)
+        // - Categories with order 0/null use 999999 (appear at end)
+        sortOrder: {
+          $cond: [
+            {
+              $and: [
+                { $ne: ["$userPreferenceOrder", null] },
+                { $ne: ["$userPreferenceOrder", 0] },
+                { $gte: ["$userPreferenceOrder", 1] },
+              ],
+            },
+            "$userPreferenceOrder", // Valid order: use actual value (1, 2, 3...)
+            999999, // Invalid order (0/null): push to end
+          ],
+        },
+      },
+    },
+    {
+      $sort: { sortOrder: 1, createdAt: 1 }, // Sort: valid orders first (1,2,3...), then invalid at end
+    },
+    {
+      $project: {
+        _id: 1,
+        name: 1,
+        img_sqr: 1,
+        img_rec: 1,
+        video_sqr: 1,
+        video_rec: 1,
+        status: 1,
+        order: 1,
+        isUserPreference: 1,
+        userPreferenceOrder: 1,
+        createdAt: 1,
+        updatedAt: 1,
+      },
+    },
+  ]);
+};
+
+/**
+ * Get categories for users sorted by userPreferenceOrder (User-facing API)
+ * Returns ONLY categories where isUserPreference: true and status: true, sorted by userPreferenceOrder
+ * @returns {Promise<Array>} - User preference categories sorted by userPreferenceOrder
+ */
+const getUserCategoriesByPreference = async () => {
+  // Use aggregation to get only user preference categories sorted by userPreferenceOrder
+  return Category.aggregate([
+    {
+      $match: {
+        isDeleted: false,
+        status: true, // Only active categories
+        isUserPreference: true, // ONLY user preference categories
+      },
+    },
+    {
+      $addFields: {
+        // Normalize userPreferenceOrder: treat missing/null as 0
+        userPreferenceOrder: {
+          $ifNull: ["$userPreferenceOrder", 0],
+        },
+        // Create sort order:
+        // - Categories with valid order (>=1) use actual order (1, 2, 3...)
+        // - Categories with order 0/null use 999999 (appear at end)
+        sortOrder: {
+          $cond: [
+            {
+              $and: [
+                { $ne: ["$userPreferenceOrder", null] },
+                { $ne: ["$userPreferenceOrder", 0] },
+                { $gte: ["$userPreferenceOrder", 1] },
+              ],
+            },
+            "$userPreferenceOrder", // Valid order: use actual value (1, 2, 3...)
+            999999, // Invalid order (0/null): push to end
+          ],
+        },
+      },
+    },
+    {
+      $sort: { sortOrder: 1, createdAt: 1 }, // Sort: valid orders first (1,2,3...), then invalid at end
+    },
+    {
+      $project: {
+        _id: 1,
+        name: 1,
+        img_sqr: 1,
+        img_rec: 1,
+        video_sqr: 1,
+        video_rec: 1,
+        status: 1,
+      },
+    },
+  ]);
+};
+
+/**
+ * Reorder a category with proper shifting logic using MongoDB transactions
+ * Only affects categories with isUserPreference = true
+ * 
+ * @param {string} categoryId - Category ID to reorder
+ * @param {number} newOrder - New order position (must be >= 1)
+ * @returns {Promise<Object>} - Updated category
+ */
+const reorderCategory = async (categoryId, newOrder) => {
+  const session = await mongoose.startSession();
+  session.startTransaction();
+
+  try {
+    // Validate inputs
+    if (!mongoose.Types.ObjectId.isValid(categoryId)) {
+      throw new Error("Invalid category ID format");
+    }
+
+    if (!Number.isInteger(newOrder) || newOrder < 1) {
+      throw new Error("New order must be an integer >= 1");
+    }
+
+    // Get the category to reorder
+    const category = await Category.findOne({
+      _id: categoryId,
+      isDeleted: false,
+    })
+      .select("_id isUserPreference userPreferenceOrder")
+      .lean()
+      .session(session);
+
+    if (!category) {
+      throw new Error("Category not found");
+    }
+
+    // Check if category has isUserPreference = true
+    if (!category.isUserPreference) {
+      throw new Error("Category must have isUserPreference = true to be reordered");
+    }
+
+    const oldOrder = category.userPreferenceOrder || 0;
+
+    // If same order, no changes needed
+    if (oldOrder === newOrder) {
+      await session.commitTransaction();
+      session.endSession();
+      return await Category.findById(categoryId).lean();
+    }
+
+    // Get max order to validate newOrder
+    const maxOrder = await Category.findOne(
+      {
+        isDeleted: false,
+        isUserPreference: true,
+      },
+      { userPreferenceOrder: 1 }
+    )
+      .sort({ userPreferenceOrder: -1 })
+      .lean()
+      .session(session);
+
+    const maxOrderValue = maxOrder?.userPreferenceOrder || 0;
+
+    // Validate newOrder is within valid range
+    if (newOrder > maxOrderValue + 1) {
+      throw new Error(
+        `New order ${newOrder} exceeds maximum order ${maxOrderValue}. Maximum allowed: ${maxOrderValue + 1}`
+      );
+    }
+
+    const bulkOps = [];
+
+    if (newOrder > oldOrder) {
+      // Moving down: Decrement userPreferenceOrder by 1 for all records where
+      // userPreferenceOrder > oldOrder AND userPreferenceOrder <= newOrder
+      bulkOps.push({
+        updateMany: {
+          filter: {
+            _id: { $ne: new mongoose.Types.ObjectId(categoryId) },
+            isDeleted: false,
+            isUserPreference: true,
+            userPreferenceOrder: { $gt: oldOrder, $lte: newOrder },
+          },
+          update: {
+            $inc: { userPreferenceOrder: -1 },
+            $set: { updatedAt: new Date() },
+          },
+        },
+      });
+    } else {
+      // Moving up: Increment userPreferenceOrder by 1 for all records where
+      // userPreferenceOrder >= newOrder AND userPreferenceOrder < oldOrder
+      bulkOps.push({
+        updateMany: {
+          filter: {
+            _id: { $ne: new mongoose.Types.ObjectId(categoryId) },
+            isDeleted: false,
+            isUserPreference: true,
+            userPreferenceOrder: { $gte: newOrder, $lt: oldOrder },
+          },
+          update: {
+            $inc: { userPreferenceOrder: 1 },
+            $set: { updatedAt: new Date() },
+          },
+        },
+      });
+    }
+
+    // Update the selected category's userPreferenceOrder to newOrder
+    bulkOps.push({
+      updateOne: {
+        filter: {
+          _id: new mongoose.Types.ObjectId(categoryId),
+          isDeleted: false,
+          isUserPreference: true,
+        },
+        update: {
+          $set: {
+            userPreferenceOrder: newOrder,
+            updatedAt: new Date(),
+          },
+        },
+      },
+    });
+
+    // Execute all operations in transaction
+    if (bulkOps.length > 0) {
+      await Category.bulkWrite(bulkOps, { session, ordered: false });
+    }
+
+    // Commit transaction
+    await session.commitTransaction();
+    session.endSession();
+
+    // Return updated category
+    return await Category.findById(categoryId).lean();
+  } catch (error) {
+    // Abort transaction on error
+    await session.abortTransaction();
+    session.endSession();
+    throw error;
+  }
  * Get maximum More order number from existing categories (optimized)
  * @param {Object} filter - Optional filter (default: isDeleted: false, isMore: true)
  * @returns {Promise<number>} - Maximum More order number (default: -1 if no categories)
@@ -347,4 +637,8 @@ export default {
   getAiWorldCategories,
   getMaxMoreOrder,
   getMoreCategories,
+  getMaxUserPreferenceOrder,
+  getUserPreferenceCategories,
+  getUserCategoriesByPreference,
+  reorderCategory,
 };

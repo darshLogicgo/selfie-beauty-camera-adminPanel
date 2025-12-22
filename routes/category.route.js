@@ -136,4 +136,5 @@ route.patch(
   categoryController.toggleCategoryPremium
 );
 
+
 export default route;

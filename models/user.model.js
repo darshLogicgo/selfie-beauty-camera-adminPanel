@@ -86,7 +86,11 @@ const schema = new mongoose.Schema(
     deviceId: { type: String, default: null },
     isDemo: { type: Boolean, default: false, index: true },
     countryCode: { type: String },
-    isSubscribed: { type: Boolean, default: false, index: true }, // Track subscription status
+    subscriptionAppUserId: { type: String, default: null, index: true }, // RevenueCat app user ID
+    isSubscribe: { type: Boolean, default: false, index: true }, // Subscription status
+    subscriptionType: { type: String, default: null }, // Subscription period type (monthly, yearly, etc.)
+    subscriptionStart: { type: Date, default: null }, // Subscription start date
+    subscriptionEnd: { type: Date, default: null }, // Subscription end/expiry date
   },
   {
     timestamps: true,

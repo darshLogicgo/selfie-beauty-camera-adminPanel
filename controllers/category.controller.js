@@ -114,16 +114,16 @@ const createCategory = async (req, res) => {
     // Order is assigned even if isAiWorld is false, so it's ready when admin toggles it later
     payload.aiWorldOrder = maxAiWorldOrder === -1 ? 1 : maxAiWorldOrder + 1;
 
-    // Always assign More order (regardless of isMore status)
-    // Query max moreOrder from ALL categories (not just More ones) to ensure unique incrementing order
-    const maxMoreOrder = await categoryService.getMaxMoreOrder({
+    // Always assign User Preference order (regardless of isUserPreference status)
+    // Query max userPreferenceOrder from ALL categories (not just User Preference ones) to ensure unique incrementing order
+    const maxUserPreferenceOrder = await categoryService.getMaxUserPreferenceOrder({
       isDeleted: false,
-      // Don't filter by isMore - get max from all categories to ensure unique order
+      // Don't filter by isUserPreference - get max from all categories to ensure unique order
     });
-    payload.isMore = false; // Default to false, admin can toggle later
-    // Assign More order: if no categories exist, start with 1, otherwise increment
-    // Order is assigned even if isMore is false, so it's ready when admin toggles it later
-    payload.moreOrder = maxMoreOrder === -1 ? 1 : maxMoreOrder + 1;
+    payload.isUserPreference = false; // Default to false, admin can toggle later
+    // Assign User Preference order: if no categories exist, start with 1, otherwise increment
+    // Order is assigned even if isUserPreference is false, so it's ready when admin toggles it later
+    payload.userPreferenceOrder = maxUserPreferenceOrder === -1 ? 1 : maxUserPreferenceOrder + 1;
 
     // Always assign home section orders (regardless of section status)
     // Query max orders from ALL categories to ensure unique incrementing order
@@ -295,6 +295,8 @@ const getCategories = async (req, res) => {
         section7Order: 1,
         isMore: 1,
         moreOrder: 1,
+        isUserPreference: 1,
+        userPreferenceOrder: 1,
         updatedAt: 1,
         createdAt: 1,
       })
@@ -471,6 +473,10 @@ const updateCategory = async (req, res) => {
     if (isPremium !== undefined) updateData.isPremium = isPremium;
     if (imageCount !== undefined) updateData.imageCount = Number(imageCount);
     if (prompt !== undefined) updateData.prompt = prompt.trim();
+    if (req.body.isUserPreference !== undefined)
+      updateData.isUserPreference = req.body.isUserPreference;
+    if (req.body.userPreferenceOrder !== undefined)
+      updateData.userPreferenceOrder = Number(req.body.userPreferenceOrder);
 
     // Handle media file updates and null assignments
     const updatePromises = [];
@@ -1076,6 +1082,7 @@ const toggleCategoryPremium = async (req, res) => {
     });
   }
 };
+
 
 export default {
   createCategory,
