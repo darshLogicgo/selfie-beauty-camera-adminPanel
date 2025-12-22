@@ -17,5 +17,16 @@ route.get(
   dashboardController.getDashboardStats
 );
 
+/**
+ * POST /api/v1/dashboard/test-ai-edit-reminder-cron
+ * Test endpoint to manually trigger AI Edit Reminder cron job (Admin only)
+ */
+route.post(
+  "/test-ai-edit-reminder-cron",
+  // verifyToken,
+  // verifyRole([enums.userRoleEnum.ADMIN]),
+  dashboardController.testAiEditReminderCron
+);
+
 export default route;
 

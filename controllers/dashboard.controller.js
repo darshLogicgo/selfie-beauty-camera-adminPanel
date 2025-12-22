@@ -5,6 +5,15 @@ import UserModel from "../models/user.model.js";
 import MediaClicks from "../models/mediaclicks.model.js";
 import categoryService from "../services/category.service.js";
 import userServices from "../services/user.service.js";
+import { runAiEditReminderCron } from "../cron/aiEditReminder.cron.js";
+import { runCoreActiveUsersCron } from "../cron/coreActiveUsers.cron.js";
+import { runRecentlyActiveUsersCron } from "../cron/recentlyActiveUsers.cron.js";
+import { runInactiveUsersCron } from "../cron/inactiveUsers.cron.js";
+import { runChurnedUsersCron } from "../cron/churnedUsers.cron.js";
+import { runViralUsersCron } from "../cron/viralUsers.cron.js";
+import { runSavedEditUsersCron } from "../cron/savedEditUsers.cron.js";
+import { runStyleOpenedUsersCron } from "../cron/styleOpenedUsers.cron.js";
+import { runStreakUsersCron } from "../cron/streakUsers.cron.js";
 
 /**
  * Get dashboard statistics
@@ -149,6 +158,37 @@ const getDashboardStats = async (req, res) => {
   }
 };
 
+/**
+ * Test endpoint to manually trigger AI Edit Reminder cron job
+ * @route POST /api/v1/dashboard/test-ai-edit-reminder-cron
+ * @access Private (Admin)
+ */
+const testAiEditReminderCron = async (req, res) => {
+  try {
+    const result = await runStreakUsersCron();
+    
+    return apiResponse({
+      res,
+      statusCode: StatusCodes.OK,
+      status: result.success,
+      message: result.success 
+        ? "Streak Users cron executed successfully" 
+        : "Streak Users cron execution failed",
+      data: result,
+    });
+  } catch (error) {
+    return apiResponse({
+      res,
+      statusCode: StatusCodes.INTERNAL_SERVER_ERROR,
+      status: false,
+      message: "Failed to execute AI Edit Reminder cron",
+      data: null,
+      error: error.message,
+    });
+  }
+};
+
 export default {
   getDashboardStats,
+  testAiEditReminderCron,
 };

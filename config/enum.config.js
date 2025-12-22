@@ -67,6 +67,21 @@ const feedbackStatusEnum = {
   RESOLVED: "resolved",
 };
 
+const cronNameEnum = {
+  EXAMPLE_CRON: "exampleCron",
+  AI_EDIT_REMINDER: "aiEditReminder",
+  CORE_ACTIVE_USERS: "coreActiveUsers",
+  RECENTLY_ACTIVE_USERS: "recentlyActiveUsers",
+  INACTIVE_USERS: "inactiveUsers",
+  CHURNED_USERS: "churnedUsers",
+  VIRAL_USERS: "viralUsers",
+  SAVED_EDIT_USERS: "savedEditUsers",
+  STYLE_OPENED_USERS: "styleOpenedUsers",
+  STREAK_USERS: "streakUsers",
+};
+
+export { cronNameEnum };
+
 export default {
   nodeEnvEnums,
   authProviderEnum,
@@ -80,4 +95,5 @@ export default {
   maxFileSizeBytes,
   uninstallReasons,
   feedbackStatusEnum,
+  cronNameEnum,
 };

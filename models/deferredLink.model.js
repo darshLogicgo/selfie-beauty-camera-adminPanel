@@ -44,6 +44,28 @@ const deferredLinkSchema = new mongoose.Schema(
       type: Date,
       default: null,
     },
+    // Device tracking fields for fallback resolution
+    deviceInfo: {
+      userAgent: {
+        type: String,
+        default: null,
+      },
+      ip: {
+        type: String,
+        default: null,
+      },
+      installSource: {
+        type: String,
+        default: null,
+      },
+    },
+    // Short code for easier referrer passing (6-8 characters)
+    shortCode: {
+      type: String,
+      unique: true,
+      sparse: true,
+      index: true,
+    },
   },
   {
     timestamps: true,
@@ -53,6 +75,9 @@ const deferredLinkSchema = new mongoose.Schema(
 
 // Compound index for efficient lookups
 deferredLinkSchema.index({ installRef: 1, consumed: 1, expiresAt: 1 });
+deferredLinkSchema.index({ shortCode: 1, consumed: 1, expiresAt: 1 });
+deferredLinkSchema.index({ createdAt: 1, consumed: 1 }); // For time-based fallback
+deferredLinkSchema.index({ "deviceInfo.ip": 1, consumed: 1, createdAt: -1 }); // For IP-based lookup
 
 // Method to check if link is valid
 deferredLinkSchema.methods.isValid = function () {

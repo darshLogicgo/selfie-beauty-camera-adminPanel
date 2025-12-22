@@ -14,12 +14,22 @@ const shareValidation = {
   resolveInstallRefValidator: Joi.object({
     installRef: Joi.string()
       .trim()
-      .required()
-      .uuid()
+      .optional()
+      .allow("", null)
+      .max(100)
       .messages({
-        "any.required": "Install reference is required",
-        "string.empty": "Install reference cannot be empty",
-        "string.guid": "Install reference must be a valid UUID",
+        "string.max": "Install reference must be at most 100 characters",
+      }),
+  }),
+  resolveByIpValidator: Joi.object({
+    ipAddress: Joi.string()
+      .trim()
+      .required()
+      .ip({ version: ['ipv4', 'ipv6'], cidr: 'optional' })
+      .messages({
+        "any.required": "IP address is required",
+        "string.empty": "IP address cannot be empty",
+        "string.ip": "IP address must be a valid IPv4 or IPv6 address",
       }),
   }),
 };
