@@ -416,6 +416,8 @@ const getUserCategoriesByPreference = async () => {
         video_sqr: 1,
         video_rec: 1,
         status: 1,
+        isPremium: 1,
+        prompt: 1,
       },
     },
   ]);

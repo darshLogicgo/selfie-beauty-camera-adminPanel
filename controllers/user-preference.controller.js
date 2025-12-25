@@ -403,7 +403,7 @@ const updateUserPreferenceOrder = async (req, res) => {
 /**
  * Get categories for users sorted by userPreferenceOrder (User-facing API)
  * Returns ONLY categories where isUserPreference: true and status: true, sorted by userPreferenceOrder
- * Returns only: _id, name, img_sqr, img_rec, video_sqr, video_rec, status
+ * Returns: _id, name, img_sqr, img_rec, video_sqr, video_rec, status, isPremium, prompt
  * @route GET /api/v1/user-preference/list
  * @access Private (Authenticated User - token required)
  */
@@ -415,17 +415,36 @@ const getUserCategoriesByPreference = async (req, res) => {
     const categories = await categoryService.getUserCategoriesByPreference();
     
     console.log(`[User Preference API] Found ${categories.length} categories`);
+    
+    // Debug: Log first category to see what fields are available
+    if (categories.length > 0) {
+      console.log("[User Preference API] Sample category from DB:", JSON.stringify(categories[0], null, 2));
+      console.log("[User Preference API] isPremium value:", categories[0].isPremium);
+      console.log("[User Preference API] prompt value:", categories[0].prompt);
+    }
 
-    // Return only the specified fields
-    const filteredCategories = categories.map((category) => ({
-      _id: category._id,
-      name: category.name,
-      img_sqr: category.img_sqr,
-      img_rec: category.img_rec,
-      video_sqr: category.video_sqr,
-      video_rec: category.video_rec,
-      status: category.status,
-    }));
+    // Return only the specified fields - explicitly include isPremium and prompt
+    const filteredCategories = categories.map((category) => {
+      const result = {
+        _id: category._id,
+        name: category.name,
+        img_sqr: category.img_sqr,
+        img_rec: category.img_rec,
+        video_sqr: category.video_sqr,
+        video_rec: category.video_rec,
+        status: category.status,
+        isPremium: category.isPremium !== undefined && category.isPremium !== null ? Boolean(category.isPremium) : false,
+        prompt: category.prompt !== undefined && category.prompt !== null ? String(category.prompt) : "",
+      };
+      return result;
+    });
+    
+    // Debug: Log first filtered category to verify fields
+    if (filteredCategories.length > 0) {
+      console.log("[User Preference API] Sample filtered category:", JSON.stringify(filteredCategories[0], null, 2));
+      console.log("[User Preference API] Final isPremium:", filteredCategories[0].isPremium);
+      console.log("[User Preference API] Final prompt:", filteredCategories[0].prompt);
+    }
 
     return apiResponse({
       res,
