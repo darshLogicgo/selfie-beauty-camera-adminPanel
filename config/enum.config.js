@@ -78,6 +78,8 @@ const cronNameEnum = {
   SAVED_EDIT_USERS: "savedEditUsers",
   STYLE_OPENED_USERS: "styleOpenedUsers",
   STREAK_USERS: "streakUsers",
+  ALMOST_SUBSCRIBERS: "almostSubscribers",
+  PAYWALL_DISMISSED_USERS: "paywallDismissedUsers",
 };
 
 export { cronNameEnum };

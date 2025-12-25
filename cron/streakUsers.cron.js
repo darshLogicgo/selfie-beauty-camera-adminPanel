@@ -10,13 +10,14 @@ import helper from "../helper/common.helper.js";
  * - streak_days >= 3 (consecutive days with edits)
  * - Users who edited for 3+ days straight
  * - Very high habit potential
- * - Notification sent when streak breaks (today has no entry)
+ * - Notification sent when streak breaks (yesterday has no entry, not today)
+ * - We check yesterday (not today) because today's day is not complete yet
+ * - User can still edit today, so notification is sent only if yesterday was missed
  */
 export const runStreakUsersCron = async () => {
   logger.info("CRON START >> Streak Users - Finding users to notify");
 
   try {
-    const now = moment();
     const today = moment().startOf("day");
     const yesterday = moment().subtract(1, "days").startOf("day");
 
@@ -61,19 +62,22 @@ export const runStreakUsersCron = async () => {
           validEntries.map((date) => date.format("YYYY-MM-DD"))
         );
 
-        // Check if today has an entry
-        const todayKey = today.format("YYYY-MM-DD");
-        if (entryDatesSet.has(todayKey)) {
-          // If today has an entry, skip (they're still maintaining streak)
+        // Check if yesterday has an entry
+        // We check yesterday (not today) because today's day is not complete yet
+        // User can still edit today, so we should only notify if yesterday was missed
+        const yesterdayKey = yesterday.format("YYYY-MM-DD");
+        if (entryDatesSet.has(yesterdayKey)) {
+          // If yesterday has an entry, skip (they're still maintaining streak)
           skippedCount++;
           continue;
         }
 
-        // Calculate consecutive streak going backwards from yesterday
+        // Calculate consecutive streak going backwards from day-before-yesterday
+        // Since yesterday has no entry, we check streak from 2 days ago backwards
         let streakDays = 0;
-        let checkDate = yesterday.clone();
+        let checkDate = moment().subtract(2, "days").startOf("day");
 
-        // Check consecutive days backwards from yesterday
+        // Check consecutive days backwards from 2 days ago
         while (true) {
           const checkDateKey = checkDate.format("YYYY-MM-DD");
           
@@ -108,7 +112,7 @@ export const runStreakUsersCron = async () => {
         if (notificationResult.success) {
           successCount++;
           logger.info(
-            `Notification sent successfully to streak user ${user._id} (${streakDays} day streak broken)`
+            `Notification sent successfully to streak user ${user._id} (${streakDays} day streak broken - yesterday missed)`
           );
           results.push({
             userId: user._id,

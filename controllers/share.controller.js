@@ -1153,6 +1153,409 @@ const createDeferredLink = async (req, res) => {
 // </body>
 // </html>`;
 // };
+
+// const generateFallbackHTML = (data) => {
+//   const {
+//     title = "AI Feature",
+//     message = "Check out this amazing AI feature!",
+//     featureTitle = "AI Feature",
+//     deepLink,
+//     customSchemeLink,
+//     androidStoreLink,
+//     webLink,
+//     createDeferredUrl,
+//   } = data;
+
+//   return `<!DOCTYPE html>
+// <html lang="en">
+// <head>
+//   <meta charset="UTF-8">
+//   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+//   <meta http-equiv="X-UA-Compatible" content="IE=edge">
+//   <title>${featureTitle} - Selfie Beauty Camera</title>
+//   <style>
+//     * {
+//       margin: 0;
+//       padding: 0;
+//       box-sizing: border-box;
+//     }
+//     body {
+//       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+//       background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+//       min-height: 100vh;
+//       display: flex;
+//       align-items: center;
+//       justify-content: center;
+//       padding: 20px;
+//     }
+//     .container {
+//       background: white;
+//       border-radius: 20px;
+//       padding: 40px;
+//       max-width: 500px;
+//       width: 100%;
+//       box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+//       text-align: center;
+//     }
+//     .icon {
+//       width: 80px;
+//       height: 80px;
+//       background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+//       border-radius: 50%;
+//       margin: 0 auto 20px;
+//       display: flex;
+//       align-items: center;
+//       justify-content: center;
+//       font-size: 40px;
+//     }
+//     h1 {
+//       color: #333;
+//       margin-bottom: 10px;
+//       font-size: 28px;
+//     }
+//     p {
+//       color: #666;
+//       margin-bottom: 30px;
+//       font-size: 16px;
+//       line-height: 1.6;
+//     }
+//     .feature-badge {
+//       display: inline-block;
+//       background: #f0f0f0;
+//       padding: 8px 16px;
+//       border-radius: 20px;
+//       color: #667eea;
+//       font-weight: 600;
+//       margin-bottom: 30px;
+//       font-size: 14px;
+//     }
+//     .button {
+//       display: inline-block;
+//       background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+//       color: white;
+//       padding: 16px 32px;
+//       border-radius: 12px;
+//       text-decoration: none;
+//       font-weight: 600;
+//       font-size: 16px;
+//       transition: transform 0.2s, box-shadow 0.2s;
+//       cursor: pointer;
+//       border: none;
+//       width: 100%;
+//       margin-bottom: 15px;
+//     }
+//     .button:hover {
+//       transform: translateY(-2px);
+//       box-shadow: 0 10px 20px rgba(102, 126, 234, 0.4);
+//     }
+//     .button:active {
+//       transform: translateY(0);
+//     }
+//     .loading {
+//       display: none;
+//       color: #666;
+//       font-size: 14px;
+//       margin-top: 20px;
+//     }
+//     .debug-info {
+//       display: none;
+//       margin-top: 20px;
+//       padding: 10px;
+//       background: #f5f5f5;
+//       border-radius: 8px;
+//       font-size: 11px;
+//       text-align: left;
+//       color: #666;
+//       max-height: 200px;
+//       overflow-y: auto;
+//     }
+//   </style>
+// </head>
+// <body>
+//   <div class="container">
+//     <div class="icon">✨</div>
+//     <h1>${featureTitle}</h1>
+//     <p>${message}</p>
+//     <div class="feature-badge">${featureTitle} Feature</div>
+//     <button id="openAppBtn" class="button">Open in App</button>
+//     <div class="loading" id="loading">Opening app...</div>
+//     <div class="debug-info" id="debugInfo"></div>
+//   </div>
+
+//   <script>
+//     (function() {
+//       console.log('[DeferredLink] Script started');
+//       const ua = navigator.userAgent || navigator.vendor || window.opera;
+//       const deepLinkUrl = "${deepLink}";
+//       const customSchemeLink = "${customSchemeLink}";
+//       const androidStoreLink = "${androidStoreLink}";
+//       const webLink = "${webLink}";
+//       const createDeferredUrl = "${createDeferredUrl}";
+      
+//       console.log('[DeferredLink] URLs initialized', {
+//         createDeferredUrl: createDeferredUrl,
+//         androidStoreLink: androidStoreLink,
+//         customSchemeLink: customSchemeLink
+//       });
+      
+//       const isAndroid = /android/i.test(ua);
+//       console.log('[DeferredLink] Platform detected', { isAndroid, userAgent: ua });
+      
+//       let appOpened = false;
+//       let pageHidden = false;
+//       let redirectTimer = null;
+//       let hasRedirected = false;
+//       let deferredLinkCreated = false;
+//       let playStoreUrlWithReferrer = null;
+
+//       // Debug logging helper
+//       const addDebugLog = (message) => {
+//         const debugEl = document.getElementById('debugInfo');
+//         if (debugEl) {
+//           debugEl.style.display = 'block';
+//           debugEl.innerHTML += new Date().toLocaleTimeString() + ': ' + message + '<br>';
+//           debugEl.scrollTop = debugEl.scrollHeight;
+//         }
+//       };
+
+//       const createDeferredLink = async () => {
+//         if (deferredLinkCreated) {
+//           console.log('[DeferredLink] Deferred link already created, skipping');
+//           return playStoreUrlWithReferrer;
+//         }
+
+//         if (!createDeferredUrl || createDeferredUrl === 'undefined') {
+//           console.error('[DeferredLink] createDeferredUrl is missing or undefined');
+//           addDebugLog('ERROR: createDeferredUrl missing');
+//           return null;
+//         }
+
+//         console.log('[DeferredLink] Creating deferred link...', { url: createDeferredUrl });
+//         addDebugLog('Creating deferred link...');
+//         deferredLinkCreated = true;
+
+//         try {
+//           const response = await fetch(createDeferredUrl, {
+//             method: 'GET',
+//             headers: {
+//               'Content-Type': 'application/json',
+//             },
+//             keepalive: true
+//           });
+
+//           console.log('[DeferredLink] Fetch response received', { 
+//             status: response.status, 
+//             statusText: response.statusText 
+//           });
+
+//           const data = await response.json();
+//           console.log('[DeferredLink] Response data', data);
+
+//           if (data.status && data.data && data.data.playStoreUrl) {
+//             playStoreUrlWithReferrer = data.data.playStoreUrl;
+//             console.log('[DeferredLink] Deferred link created successfully', {
+//               installRef: data.data.installRef,
+//               playStoreUrl: playStoreUrlWithReferrer
+//             });
+//             addDebugLog('Deferred link created: ' + data.data.installRef);
+//             return playStoreUrlWithReferrer;
+//           } else {
+//             console.warn('[DeferredLink] Deferred link creation failed - invalid response', data);
+//             addDebugLog('ERROR: Invalid response from server');
+//             return null;
+//           }
+//         } catch (error) {
+//           console.error('[DeferredLink] Error creating deferred link', {
+//             error: error.message,
+//             stack: error.stack,
+//             url: createDeferredUrl
+//           });
+//           addDebugLog('ERROR: ' + error.message);
+//           return null;
+//         }
+//       };
+
+//       const redirectToPlayStore = async (useDeferredLink = true) => {
+//         console.log('[DeferredLink] Redirecting to Play Store', { useDeferredLink });
+//         addDebugLog('Redirecting to Play Store...');
+        
+//         let finalUrl = androidStoreLink;
+        
+//         if (useDeferredLink) {
+//           const deferredUrl = await createDeferredLink();
+//           if (deferredUrl) {
+//             finalUrl = deferredUrl;
+//             console.log('[DeferredLink] Using deferred Play Store URL with referrer');
+//             addDebugLog('Using URL with referrer');
+//           } else {
+//             console.warn('[DeferredLink] Deferred link creation failed, using regular Play Store URL');
+//             addDebugLog('WARNING: Using regular URL (no referrer)');
+//           }
+//         }
+        
+//         console.log('[DeferredLink] Final redirect URL:', finalUrl);
+//         addDebugLog('Redirecting to: ' + finalUrl.substring(0, 80) + '...');
+        
+//         // **KEY FIX: Use window.location.replace() instead of window.location.href**
+//         // This method preserves the referrer parameter better during redirect
+//         window.location.replace(finalUrl);
+//       };
+
+//       const markAppOpened = () => { 
+//         console.log('[DeferredLink] App opened detected');
+//         addDebugLog('App opened successfully');
+//         appOpened = true; 
+//         if (redirectTimer) {
+//           clearTimeout(redirectTimer);
+//           redirectTimer = null;
+//         }
+//       };
+
+//       const handleVisibilityChange = () => {
+//         console.log('[DeferredLink] Visibility changed', { 
+//           visibilityState: document.visibilityState 
+//         });
+//         if (document.visibilityState === 'hidden') { 
+//           pageHidden = true; 
+//           markAppOpened(); 
+//         }
+//       };
+
+//       const handleBlur = () => { 
+//         console.log('[DeferredLink] Window blur event');
+//         pageHidden = true; 
+//         markAppOpened(); 
+//       };
+
+//       const handlePageHide = () => { 
+//         console.log('[DeferredLink] Page hide event');
+//         pageHidden = true; 
+//         markAppOpened();
+//         // Pre-create deferred link before page unloads (don't wait for redirect)
+//         if (!deferredLinkCreated) {
+//           console.log('[DeferredLink] Page hiding - pre-creating deferred link');
+//           createDeferredLink();
+//         }
+//       };
+
+//       const handleBeforeUnload = () => {
+//         console.log('[DeferredLink] Before unload event');
+//         // Ensure deferred link is created before page unloads
+//         if (!deferredLinkCreated) {
+//           console.log('[DeferredLink] Before unload - creating deferred link');
+//           createDeferredLink();
+//         }
+//       };
+
+//       document.addEventListener('visibilitychange', handleVisibilityChange);
+//       window.addEventListener('blur', handleBlur);
+//       window.addEventListener('pagehide', handlePageHide);
+//       window.addEventListener('beforeunload', handleBeforeUnload);
+
+//       const tryOpenAppAndroid = async () => {
+//         if (hasRedirected) {
+//           console.log('[DeferredLink] Already redirected, skipping');
+//           return;
+//         }
+        
+//         console.log('[DeferredLink] Attempting to open app with deep link', { deepLinkUrl });
+//         addDebugLog('Trying to open app...');
+        
+//         // Try opening app with custom scheme first (faster)
+//         if (customSchemeLink && customSchemeLink.startsWith('photoeditor://')) {
+//           window.location.href = customSchemeLink;
+//         } else {
+//           window.location.href = deepLinkUrl;
+//         }
+        
+//         hasRedirected = true;
+        
+//         if (redirectTimer) {
+//           clearTimeout(redirectTimer);
+//           redirectTimer = null;
+//         }
+        
+//         // Wait 2.5 seconds to see if app opens
+//         redirectTimer = setTimeout(async () => {
+//           console.log('[DeferredLink] Timeout check', {
+//             visibilityState: document.visibilityState,
+//             pageHidden: pageHidden,
+//             appOpened: appOpened
+//           });
+
+//           // If page is still visible and app didn't open, redirect to Play Store
+//           if (document.visibilityState === 'visible' && !pageHidden && !appOpened) {
+//             console.log('[DeferredLink] App did not open - redirecting to Play Store with deferred link');
+//             addDebugLog('App not installed, redirecting to store...');
+//             await redirectToPlayStore(true);
+//           } else {
+//             console.log('[DeferredLink] App opened or page hidden, skipping redirect');
+//             addDebugLog('App may have opened');
+//           }
+//         }, 2500); // Increased timeout slightly for better detection
+//       };
+
+//       const startJoinFlow = () => {
+//         if (isAndroid) {
+//           console.log('[DeferredLink] Starting join flow for Android');
+//           addDebugLog('Starting Android flow...');
+//           // Start after a short delay to ensure page is fully loaded
+//           setTimeout(() => {
+//             tryOpenAppAndroid();
+//           }, 500);
+//         } else {
+//           console.log('[DeferredLink] Not Android, skipping auto-open');
+//           addDebugLog('Not Android device');
+//         }
+//       };
+
+//       if (document.readyState === 'complete' || document.readyState === 'interactive') {
+//         console.log('[DeferredLink] Document ready, starting flow');
+//         startJoinFlow();
+//       } else {
+//         console.log('[DeferredLink] Waiting for DOMContentLoaded');
+//         window.addEventListener('DOMContentLoaded', () => {
+//           console.log('[DeferredLink] DOMContentLoaded fired');
+//           startJoinFlow();
+//         });
+//       }
+
+//       const openAppBtn = document.getElementById('openAppBtn');
+//       if (openAppBtn) {
+//         openAppBtn.addEventListener('click', async function(e) {
+//           e.preventDefault();
+//           e.stopPropagation();
+          
+//           console.log('[DeferredLink] Open App button clicked');
+//           addDebugLog('Button clicked');
+          
+//           const loadingEl = document.getElementById('loading');
+//           if (loadingEl) loadingEl.style.display = 'block';
+          
+//           if (isAndroid) {
+//             // Reset flags for manual retry
+//             hasRedirected = false;
+//             appOpened = false;
+//             pageHidden = false;
+            
+//             await tryOpenAppAndroid();
+//           } else {
+//             if (!hasRedirected) {
+//               console.log('[DeferredLink] Not Android, redirecting to web link');
+//               hasRedirected = true;
+//               window.location.href = webLink;
+//             }
+//           }
+//         });
+//       } else {
+//         console.warn('[DeferredLink] Open App button not found');
+//       }
+//     })();
+//   </script>
+// </body>
+// </html>`;
+// };
+
 const generateFallbackHTML = (data) => {
   const {
     title = "AI Feature",
@@ -1173,101 +1576,34 @@ const generateFallbackHTML = (data) => {
   <meta http-equiv="X-UA-Compatible" content="IE=edge">
   <title>${featureTitle} - Selfie Beauty Camera</title>
   <style>
-    * {
-      margin: 0;
-      padding: 0;
-      box-sizing: border-box;
-    }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
     body {
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
       background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-      min-height: 100vh;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      padding: 20px;
+      min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 20px;
     }
     .container {
-      background: white;
-      border-radius: 20px;
-      padding: 40px;
-      max-width: 500px;
-      width: 100%;
-      box-shadow: 0 20px 60px rgba(0,0,0,0.3);
-      text-align: center;
+      background: white; border-radius: 20px; padding: 40px; max-width: 500px; width: 100%;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.3); text-align: center;
     }
     .icon {
-      width: 80px;
-      height: 80px;
-      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-      border-radius: 50%;
-      margin: 0 auto 20px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 40px;
+      width: 80px; height: 80px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      border-radius: 50%; margin: 0 auto 20px; display: flex; align-items: center; justify-content: center; font-size: 40px;
     }
-    h1 {
-      color: #333;
-      margin-bottom: 10px;
-      font-size: 28px;
-    }
-    p {
-      color: #666;
-      margin-bottom: 30px;
-      font-size: 16px;
-      line-height: 1.6;
-    }
+    h1 { color: #333; margin-bottom: 10px; font-size: 28px; }
+    p { color: #666; margin-bottom: 30px; font-size: 16px; line-height: 1.6; }
     .feature-badge {
-      display: inline-block;
-      background: #f0f0f0;
-      padding: 8px 16px;
-      border-radius: 20px;
-      color: #667eea;
-      font-weight: 600;
-      margin-bottom: 30px;
-      font-size: 14px;
+      display: inline-block; background: #f0f0f0; padding: 8px 16px; border-radius: 20px;
+      color: #667eea; font-weight: 600; margin-bottom: 30px; font-size: 14px;
     }
     .button {
-      display: inline-block;
-      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-      color: white;
-      padding: 16px 32px;
-      border-radius: 12px;
-      text-decoration: none;
-      font-weight: 600;
-      font-size: 16px;
+      display: inline-block; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white; padding: 16px 32px; border-radius: 12px; text-decoration: none;
+      font-weight: 600; font-size: 16px; cursor: pointer; border: none; width: 100%; margin-bottom: 15px;
       transition: transform 0.2s, box-shadow 0.2s;
-      cursor: pointer;
-      border: none;
-      width: 100%;
-      margin-bottom: 15px;
     }
-    .button:hover {
-      transform: translateY(-2px);
-      box-shadow: 0 10px 20px rgba(102, 126, 234, 0.4);
-    }
-    .button:active {
-      transform: translateY(0);
-    }
-    .loading {
-      display: none;
-      color: #666;
-      font-size: 14px;
-      margin-top: 20px;
-    }
-    .debug-info {
-      display: none;
-      margin-top: 20px;
-      padding: 10px;
-      background: #f5f5f5;
-      border-radius: 8px;
-      font-size: 11px;
-      text-align: left;
-      color: #666;
-      max-height: 200px;
-      overflow-y: auto;
-    }
+    .button:hover { transform: translateY(-2px); box-shadow: 0 10px 20px rgba(102, 126, 234, 0.4); }
+    .loading { display: none; color: #666; font-size: 14px; margin-top: 20px; }
   </style>
 </head>
 <body>
@@ -1278,276 +1614,133 @@ const generateFallbackHTML = (data) => {
     <div class="feature-badge">${featureTitle} Feature</div>
     <button id="openAppBtn" class="button">Open in App</button>
     <div class="loading" id="loading">Opening app...</div>
-    <div class="debug-info" id="debugInfo"></div>
   </div>
 
   <script>
     (function() {
-      console.log('[DeferredLink] Script started');
       const ua = navigator.userAgent || navigator.vendor || window.opera;
-      const deepLinkUrl = "${deepLink}";
       const customSchemeLink = "${customSchemeLink}";
-      const androidStoreLink = "${androidStoreLink}";
-      const webLink = "${webLink}";
       const createDeferredUrl = "${createDeferredUrl}";
-      
-      console.log('[DeferredLink] URLs initialized', {
-        createDeferredUrl: createDeferredUrl,
-        androidStoreLink: androidStoreLink,
-        customSchemeLink: customSchemeLink
-      });
-      
+      const androidPackage = "photo.editor.photoeditor.filtermaster";
       const isAndroid = /android/i.test(ua);
-      console.log('[DeferredLink] Platform detected', { isAndroid, userAgent: ua });
       
-      let appOpened = false;
-      let pageHidden = false;
-      let redirectTimer = null;
-      let hasRedirected = false;
-      let deferredLinkCreated = false;
       let playStoreUrlWithReferrer = null;
+      let referrerValue = null;
 
-      // Debug logging helper
-      const addDebugLog = (message) => {
-        const debugEl = document.getElementById('debugInfo');
-        if (debugEl) {
-          debugEl.style.display = 'block';
-          debugEl.innerHTML += new Date().toLocaleTimeString() + ': ' + message + '<br>';
-          debugEl.scrollTop = debugEl.scrollHeight;
-        }
-      };
-
-      const createDeferredLink = async () => {
-        if (deferredLinkCreated) {
-          console.log('[DeferredLink] Deferred link already created, skipping');
+      // Fetch deferred link from API
+      const fetchDeferredLink = async () => {
+        if (playStoreUrlWithReferrer) {
           return playStoreUrlWithReferrer;
         }
-
         if (!createDeferredUrl || createDeferredUrl === 'undefined') {
-          console.error('[DeferredLink] createDeferredUrl is missing or undefined');
-          addDebugLog('ERROR: createDeferredUrl missing');
+          console.warn('[DeferredLink] createDeferredUrl not available');
           return null;
         }
 
-        console.log('[DeferredLink] Creating deferred link...', { url: createDeferredUrl });
-        addDebugLog('Creating deferred link...');
-        deferredLinkCreated = true;
-
+        console.log('[DeferredLink] Fetching deferred link from API...');
         try {
           const response = await fetch(createDeferredUrl, {
             method: 'GET',
-            headers: {
-              'Content-Type': 'application/json',
-            },
+            headers: { 'Content-Type': 'application/json' },
             keepalive: true
           });
-
-          console.log('[DeferredLink] Fetch response received', { 
-            status: response.status, 
-            statusText: response.statusText 
-          });
-
           const data = await response.json();
-          console.log('[DeferredLink] Response data', data);
-
+          
           if (data.status && data.data && data.data.playStoreUrl) {
             playStoreUrlWithReferrer = data.data.playStoreUrl;
-            console.log('[DeferredLink] Deferred link created successfully', {
-              installRef: data.data.installRef,
-              playStoreUrl: playStoreUrlWithReferrer
-            });
-            addDebugLog('Deferred link created: ' + data.data.installRef);
+            
+            // Extract referrer from URL
+            try {
+              const urlObj = new URL(playStoreUrlWithReferrer);
+              referrerValue = urlObj.searchParams.get('referrer');
+              console.log('[DeferredLink] Deferred link fetched successfully, referrer:', referrerValue);
+            } catch (e) {
+              console.warn('[DeferredLink] Could not extract referrer from URL');
+            }
+            
             return playStoreUrlWithReferrer;
-          } else {
-            console.warn('[DeferredLink] Deferred link creation failed - invalid response', data);
-            addDebugLog('ERROR: Invalid response from server');
-            return null;
           }
+          return null;
         } catch (error) {
-          console.error('[DeferredLink] Error creating deferred link', {
-            error: error.message,
-            stack: error.stack,
-            url: createDeferredUrl
-          });
-          addDebugLog('ERROR: ' + error.message);
+          console.error('[DeferredLink] Error fetching deferred link:', error.message);
           return null;
         }
       };
 
-      const redirectToPlayStore = async (useDeferredLink = true) => {
-        console.log('[DeferredLink] Redirecting to Play Store', { useDeferredLink });
-        addDebugLog('Redirecting to Play Store...');
+      // Extract referrer from URL
+      const extractReferrer = (url) => {
+        try {
+          const urlObj = new URL(url);
+          return urlObj.searchParams.get('referrer');
+        } catch (e) {
+          return null;
+        }
+      };
+
+      // Always open Play Store app (intent first, then market://, then web)
+      const redirectToPlayStore = async () => {
+        console.log('[DeferredLink] Forcing Play Store app open');
         
-        let finalUrl = androidStoreLink;
-        
-        if (useDeferredLink) {
-          const deferredUrl = await createDeferredLink();
-          if (deferredUrl) {
-            finalUrl = deferredUrl;
-            console.log('[DeferredLink] Using deferred Play Store URL with referrer');
-            addDebugLog('Using URL with referrer');
-          } else {
-            console.warn('[DeferredLink] Deferred link creation failed, using regular Play Store URL');
-            addDebugLog('WARNING: Using regular URL (no referrer)');
-          }
-        }
-        
-        console.log('[DeferredLink] Final redirect URL:', finalUrl);
-        addDebugLog('Redirecting to: ' + finalUrl.substring(0, 80) + '...');
-        
-        // **KEY FIX: Use window.location.replace() instead of window.location.href**
-        // This method preserves the referrer parameter better during redirect
-        window.location.replace(finalUrl);
-      };
-
-      const markAppOpened = () => { 
-        console.log('[DeferredLink] App opened detected');
-        addDebugLog('App opened successfully');
-        appOpened = true; 
-        if (redirectTimer) {
-          clearTimeout(redirectTimer);
-          redirectTimer = null;
-        }
-      };
-
-      const handleVisibilityChange = () => {
-        console.log('[DeferredLink] Visibility changed', { 
-          visibilityState: document.visibilityState 
-        });
-        if (document.visibilityState === 'hidden') { 
-          pageHidden = true; 
-          markAppOpened(); 
-        }
-      };
-
-      const handleBlur = () => { 
-        console.log('[DeferredLink] Window blur event');
-        pageHidden = true; 
-        markAppOpened(); 
-      };
-
-      const handlePageHide = () => { 
-        console.log('[DeferredLink] Page hide event');
-        pageHidden = true; 
-        markAppOpened();
-        // Pre-create deferred link before page unloads (don't wait for redirect)
-        if (!deferredLinkCreated) {
-          console.log('[DeferredLink] Page hiding - pre-creating deferred link');
-          createDeferredLink();
-        }
-      };
-
-      const handleBeforeUnload = () => {
-        console.log('[DeferredLink] Before unload event');
-        // Ensure deferred link is created before page unloads
-        if (!deferredLinkCreated) {
-          console.log('[DeferredLink] Before unload - creating deferred link');
-          createDeferredLink();
-        }
-      };
-
-      document.addEventListener('visibilitychange', handleVisibilityChange);
-      window.addEventListener('blur', handleBlur);
-      window.addEventListener('pagehide', handlePageHide);
-      window.addEventListener('beforeunload', handleBeforeUnload);
-
-      const tryOpenAppAndroid = async () => {
-        if (hasRedirected) {
-          console.log('[DeferredLink] Already redirected, skipping');
+        // Fetch deferred link if not already fetched
+        const playStoreUrl = await fetchDeferredLink();
+        if (!playStoreUrl) {
+          console.error('[DeferredLink] Could not get Play Store URL, using fallback');
+          const fallbackUrl = 'https://play.google.com/store/apps/details?id=' + androidPackage;
+          window.location.replace(fallbackUrl);
           return;
         }
-        
-        console.log('[DeferredLink] Attempting to open app with deep link', { deepLinkUrl });
-        addDebugLog('Trying to open app...');
-        
-        // Try opening app with custom scheme first (faster)
-        if (customSchemeLink && customSchemeLink.startsWith('photoeditor://')) {
-          window.location.href = customSchemeLink;
-        } else {
-          window.location.href = deepLinkUrl;
-        }
-        
-        hasRedirected = true;
-        
-        if (redirectTimer) {
-          clearTimeout(redirectTimer);
-          redirectTimer = null;
-        }
-        
-        // Wait 2.5 seconds to see if app opens
-        redirectTimer = setTimeout(async () => {
-          console.log('[DeferredLink] Timeout check', {
-            visibilityState: document.visibilityState,
-            pageHidden: pageHidden,
-            appOpened: appOpened
-          });
 
-          // If page is still visible and app didn't open, redirect to Play Store
-          if (document.visibilityState === 'visible' && !pageHidden && !appOpened) {
-            console.log('[DeferredLink] App did not open - redirecting to Play Store with deferred link');
-            addDebugLog('App not installed, redirecting to store...');
-            await redirectToPlayStore(true);
-          } else {
-            console.log('[DeferredLink] App opened or page hidden, skipping redirect');
-            addDebugLog('App may have opened');
+        // Get referrer from URL or use cached value
+        const referrer = referrerValue || extractReferrer(playStoreUrl);
+        
+        if (isAndroid && referrer) {
+          // Build intent URL with referrer
+          const intentUrl = 'intent://details?id=' + androidPackage + '&referrer=' + encodeURIComponent(referrer) + '#Intent;scheme=market;package=com.android.vending;S.browser_fallback_url=' + encodeURIComponent(playStoreUrl) + ';end';
+          try {
+            console.log('[DeferredLink] Using Intent URL for Play Store app');
+            window.location.href = intentUrl;
+            return;
+          } catch (e) {
+            console.log('[DeferredLink] Intent failed, trying market://');
+            try {
+              const marketUrl = 'market://details?id=' + androidPackage + '&referrer=' + encodeURIComponent(referrer);
+              window.location.href = marketUrl;
+              return;
+            } catch (err) {
+              console.log('[DeferredLink] market:// failed, falling back to https');
+            }
           }
-        }, 2500); // Increased timeout slightly for better detection
+        }
+        
+        // Fallback to web URL
+        window.location.replace(playStoreUrl);
       };
 
-      const startJoinFlow = () => {
-        if (isAndroid) {
-          console.log('[DeferredLink] Starting join flow for Android');
-          addDebugLog('Starting Android flow...');
-          // Start after a short delay to ensure page is fully loaded
-          setTimeout(() => {
-            tryOpenAppAndroid();
-          }, 500);
-        } else {
-          console.log('[DeferredLink] Not Android, skipping auto-open');
-          addDebugLog('Not Android device');
-        }
+      const startJoinFlow = async () => {
+        await redirectToPlayStore();
       };
 
       if (document.readyState === 'complete' || document.readyState === 'interactive') {
-        console.log('[DeferredLink] Document ready, starting flow');
         startJoinFlow();
       } else {
-        console.log('[DeferredLink] Waiting for DOMContentLoaded');
-        window.addEventListener('DOMContentLoaded', () => {
-          console.log('[DeferredLink] DOMContentLoaded fired');
-          startJoinFlow();
-        });
+        window.addEventListener('DOMContentLoaded', startJoinFlow);
       }
 
       const openAppBtn = document.getElementById('openAppBtn');
       if (openAppBtn) {
         openAppBtn.addEventListener('click', async function(e) {
-          e.preventDefault();
+          e.preventDefault(); 
           e.stopPropagation();
-          
-          console.log('[DeferredLink] Open App button clicked');
-          addDebugLog('Button clicked');
           
           const loadingEl = document.getElementById('loading');
           if (loadingEl) loadingEl.style.display = 'block';
           
-          if (isAndroid) {
-            // Reset flags for manual retry
-            hasRedirected = false;
-            appOpened = false;
-            pageHidden = false;
-            
-            await tryOpenAppAndroid();
-          } else {
-            if (!hasRedirected) {
-              console.log('[DeferredLink] Not Android, redirecting to web link');
-              hasRedirected = true;
-              window.location.href = webLink;
-            }
-          }
+          // Reset cached URL to fetch fresh one
+          playStoreUrlWithReferrer = null;
+          referrerValue = null;
+          
+          await redirectToPlayStore();
         });
-      } else {
-        console.warn('[DeferredLink] Open App button not found');
       }
     })();
   </script>

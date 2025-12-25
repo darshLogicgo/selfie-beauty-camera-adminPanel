@@ -71,6 +71,20 @@ const PaywallOpenedEntrySchema = new Schema(
   { _id: false }
 );
 
+const PaywallDismissedEntrySchema = new Schema(
+  {
+    date: {
+      type: Date,
+      required: true,
+    },
+    count: {
+      type: Number,
+      default: 0,
+    },
+  },
+  { _id: false }
+);
+
 const StyleOpenedEntrySchema = new Schema(
   {
     date: {
@@ -137,6 +151,16 @@ const MediaClickSchema = new Schema(
 
     paywall_opened_entry: {
       type: [PaywallOpenedEntrySchema],
+      default: [],
+    },
+
+    paywall_dismissed_count: {
+      type: Number,
+      default: 0,
+    },
+
+    paywall_dismissed_entry: {
+      type: [PaywallDismissedEntrySchema],
       default: [],
     },
 

@@ -116,6 +116,7 @@ const guestLogin = {
       "string.base": "Device ID must be a string",
     }),
     fcmToken: Joi.string().allow(null, "").optional(),
+    country: Joi.string().allow(null, "").optional(),
   }),
 };
 

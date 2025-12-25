@@ -24,6 +24,8 @@ import "./cron/viralUsers.cron.js";
 import "./cron/savedEditUsers.cron.js";
 import "./cron/styleOpenedUsers.cron.js";
 import "./cron/streakUsers.cron.js";
+import "./cron/almostSubscribers.cron.js";
+import "./cron/paywallDismissedUsers.cron.js";
 
 // test
 
@@ -158,6 +160,14 @@ server.listen(config.port, async () => {
   // Streak Users Cron - Runs daily at 00:01 to notify users with streak >= 3 days when streak breaks
   // await agenda.every("1 0 * * *", cronNameEnum.STREAK_USERS);
   // logger.info("Streak Users cron scheduled");
+  
+  // Almost Subscribers Cron - Runs daily at 00:01 to notify users with paywall opened in last 14 days but no purchase
+  // await agenda.every("1 0 * * *", cronNameEnum.ALMOST_SUBSCRIBERS);
+  // logger.info("Almost Subscribers cron scheduled");
+  
+  // Paywall Dismissed Users Cron - Runs daily at 00:01 to notify users with paywall dismissed in last 7 days
+  // await agenda.every("1 0 * * *", cronNameEnum.PAYWALL_DISMISSED_USERS);
+  // logger.info("Paywall Dismissed Users cron scheduled");
 });
 
 // uncaught exceptions and unhandled rejections

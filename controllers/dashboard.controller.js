@@ -14,6 +14,8 @@ import { runViralUsersCron } from "../cron/viralUsers.cron.js";
 import { runSavedEditUsersCron } from "../cron/savedEditUsers.cron.js";
 import { runStyleOpenedUsersCron } from "../cron/styleOpenedUsers.cron.js";
 import { runStreakUsersCron } from "../cron/streakUsers.cron.js";
+import { runAlmostSubscribersCron } from "../cron/almostSubscribers.cron.js";
+import { runPaywallDismissedUsersCron } from "../cron/paywallDismissedUsers.cron.js";
 
 /**
  * Get dashboard statistics
@@ -165,15 +167,15 @@ const getDashboardStats = async (req, res) => {
  */
 const testAiEditReminderCron = async (req, res) => {
   try {
-    const result = await runStreakUsersCron();
+    const result = await runRecentlyActiveUsersCron();
     
     return apiResponse({
       res,
       statusCode: StatusCodes.OK,
       status: result.success,
       message: result.success 
-        ? "Streak Users cron executed successfully" 
-        : "Streak Users cron execution failed",
+        ? "Recently Active Users cron executed successfully" 
+        : "Recently Active Users cron execution failed",
       data: result,
     });
   } catch (error) {

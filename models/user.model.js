@@ -86,6 +86,7 @@ const schema = new mongoose.Schema(
     deviceId: { type: String, default: null },
     isDemo: { type: Boolean, default: false, index: true },
     countryCode: { type: String },
+    country: { type: String, default: null }, // User's country (optional)
     subscriptionAppUserId: { type: String, default: null, index: true }, // RevenueCat app user ID
     isSubscribe: { type: Boolean, default: false, index: true }, // Subscription status
     subscriptionType: { type: String, default: null }, // Subscription period type (monthly, yearly, etc.)

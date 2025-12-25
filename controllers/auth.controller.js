@@ -226,12 +226,10 @@ const verifyEmailOtp = async (req, res) => {
       );
     }
 
+    // Token with unlimited expiry - no expiresIn option
     const token = jwt.sign(
       { userId: user._id, email: user.email },
-      config.jwt.secretKey,
-      {
-        expiresIn: config.jwt.expiresIn || "7days",
-      }
+      config.jwt.secretKey
     );
 
     const {
@@ -502,12 +500,10 @@ const loginByEmail = async (req, res) => {
       await userService.update(user._id, { deviceId });
     }
 
+    // Token with unlimited expiry - no expiresIn option
     const token = jwt.sign(
       { userId: user._id, email: user.email },
-      config.jwt.secretKey,
-      {
-        expiresIn: config.jwt.expiresIn || "7days",
-      }
+      config.jwt.secretKey
     );
 
     const {
@@ -589,12 +585,10 @@ const loginByMobile = async (req, res) => {
       await userService.update(user._id, { deviceId });
     }
 
+    // Token with unlimited expiry - no expiresIn option
     const token = jwt.sign(
       { userId: user._id, email: user.email },
-      config.jwt.secretKey,
-      {
-        expiresIn: config.jwt.expiresIn || "7days",
-      }
+      config.jwt.secretKey
     );
 
     return apiResponse({
@@ -914,7 +908,7 @@ const loginByApple = async (req, res) => {
 // For guest login
 const guestLogin = async (req, res) => {
   try {
-    const { deviceId, fcmToken } = req.body;
+    const { deviceId, fcmToken, country } = req.body;
 
     if (!deviceId) {
       return apiResponse({
@@ -971,12 +965,22 @@ const guestLogin = async (req, res) => {
         newUserData.fcmToken = fcmToken;
       }
 
+      if (country) {
+        newUserData.country = country;
+      }
+
       user = await User.create(newUserData);
     } else {
-      // Update fcmToken if provided for existing user
+      // Update fcmToken and country if provided for existing user
+      let updateData = {};
       if (fcmToken) {
-        user.fcmToken = fcmToken;
-        await user.save();
+        updateData.fcmToken = fcmToken;
+      }
+      if (country) {
+        updateData.country = country;
+      }
+      if (Object.keys(updateData).length > 0) {
+        await userService.update(user._id, updateData);
       }
     }
 
