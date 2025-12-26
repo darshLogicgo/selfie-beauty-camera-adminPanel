@@ -77,14 +77,13 @@ const getAiWorldCategories = async (req, res) => {
       limit: limitNum,
     });
 
-    // Parallel queries for faster response (optimized with index hints)
-    const [aiWorldCategories, total] = await Promise.all([
-      categoryService
-        .find({
-          isDeleted: false,
-          status: true,
-          isAiWorld: true,
-        })
+    // Fetch all AI World categories (without pagination initially to filter by appVersion)
+    const aiWorldCategories = await categoryService
+      .find({
+        isDeleted: false,
+        status: true,
+        isAiWorld: true,
+      })
         .select({
           name: 1,
           img_sqr: 1,
@@ -98,20 +97,14 @@ const getAiWorldCategories = async (req, res) => {
           imageCount: 1,
           isPremium: 1,
           prompt: 1,
+          android_appVersion: 1,
+          ios_appVersion: 1,
           createdAt: 1,
           updatedAt: 1,
         })
-        .sort({ aiWorldOrder: 1, createdAt: 1 })
-        .skip(skip)
-        .limit(limitFromHelper)
-        .lean()
-        .hint({ isDeleted: 1, status: 1, isAiWorld: 1, aiWorldOrder: 1 }),
-      categoryService.countDocuments({
-        isDeleted: false,
-        status: true,
-        isAiWorld: true,
-      }),
-    ]);
+      .sort({ aiWorldOrder: 1, createdAt: 1 })
+      .lean()
+      .hint({ isDeleted: 1, status: 1, isAiWorld: 1, aiWorldOrder: 1 });
 
     // Add imageCount field to each category
     const categoriesWithImageCount = aiWorldCategories.map((category) => ({
@@ -119,15 +112,30 @@ const getAiWorldCategories = async (req, res) => {
       imageCount: category.imageCount || 1,
     }));
 
+    // Filter categories by user's appVersion
+    // Logic: If user doesn't have appVersion → don't show categories
+    // If user has appVersion → show only if userVersion >= categoryVersion
+    const user = req.user || null;
+    const filteredCategories = helper.filterCategoriesByAppVersion(
+      user,
+      categoriesWithImageCount
+    );
+
+    // Get total count after filtering
+    const filteredTotal = filteredCategories.length;
+
+    // Apply pagination to filtered results
+    const paginatedCategories = filteredCategories.slice(skip, skip + limitFromHelper);
+
     return apiResponse({
       res,
       statusCode: StatusCodes.OK,
       status: true,
       message: "AI World categories fetched successfully",
-      data: categoriesWithImageCount,
+      data: paginatedCategories,
       pagination: helper.paginationDetails({
         page,
-        totalItems: total,
+        totalItems: filteredTotal,
         limit: limitFromHelper,
       }),
     });

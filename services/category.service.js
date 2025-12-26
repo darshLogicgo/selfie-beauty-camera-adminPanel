@@ -418,6 +418,8 @@ const getUserCategoriesByPreference = async () => {
         status: 1,
         isPremium: 1,
         prompt: 1,
+        android_appVersion: 1,
+        ios_appVersion: 1,
       },
     },
   ]);

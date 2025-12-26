@@ -174,6 +174,8 @@ const getTrendingCategories = async (req, res) => {
           imageCount: 1,
           isPremium: 1,
           prompt: 1,
+          android_appVersion: 1,
+          ios_appVersion: 1,
           createdAt: 1,
           updatedAt: 1,
         })
@@ -228,6 +230,8 @@ const getTrendingCategories = async (req, res) => {
           imageCount: 1,
           isPremium: 1,
           prompt: 1,
+          android_appVersion: 1,
+          ios_appVersion: 1,
           createdAt: 1,
           updatedAt: 1,
         })
@@ -277,6 +281,19 @@ const getTrendingCategories = async (req, res) => {
         ...category,
         imageCount: category.imageCount || 1,
       })
+    );
+
+    // Filter categories by user's appVersion for section 1 and section 3
+    // Logic: If user doesn't have appVersion → show only categories without platform appVersion
+    // If user has appVersion → show only if userVersion >= categoryVersion
+    const user = req.user || null;
+    const filteredFirst6Categories = helper.filterCategoriesByAppVersion(
+      user,
+      transformedFirst6Categories
+    );
+    const filteredNext7Categories = helper.filterCategoriesByAppVersion(
+      user,
+      transformedNext7Categories
     );
 
     // Transform subcategories to normalize asset_images to new structure and add imageCount
@@ -393,7 +410,7 @@ const getTrendingCategories = async (req, res) => {
     const responseData = {
       section1: {
         title: "slider",
-        categories: transformedFirst6Categories,
+        categories: filteredFirst6Categories,
       },
       section2: {
         title: "AI Face Swap",
@@ -401,7 +418,7 @@ const getTrendingCategories = async (req, res) => {
       },
       section3: {
         title: "Enhancer Tools",
-        categories: transformedNext7Categories,
+        categories: filteredNext7Categories,
       },
       section4: {
         title: "Trending Subcategories",
