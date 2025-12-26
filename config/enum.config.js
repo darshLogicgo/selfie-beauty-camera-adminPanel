@@ -52,7 +52,8 @@ const uninstallReasons = {
   NO_NEED: "I don't need the app anymore",
   BETTER_APP_FOUND: "I found a better expense tracker",
   TOO_MANY_ADS: "Too many ads or interruptions",
-  MISSING_FEATURES: "Missing features I need (Budget, Reports, Sync, Multi-currency etc.)",
+  MISSING_FEATURES:
+    "Missing features I need (Budget, Reports, Sync, Multi-currency etc.)",
   HARD_TO_USE: "The app is difficult or confusing to use",
   PERFORMANCE_ISSUES: "App performance issues (slow, crashes, lag)",
   BACKUP_SYNC_ISSUES: "Data backup/sync not working properly",
