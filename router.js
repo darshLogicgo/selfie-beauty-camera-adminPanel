@@ -13,6 +13,7 @@ import feedbackRoute from "./routes/feedback.route.js";
 import dashboardRoute from "./routes/dashboard.route.js";
 import shareRoute from "./routes/share.route.js";
 import subscriptionRoute from "./routes/subscription.route.js";
+import notificationRoute from "./routes/notification.route.js";
 
 export default {
   authRoute,
@@ -29,4 +30,5 @@ export default {
   shareRoute,
   dashboardRoute,
   subscriptionRoute,
+  notificationRoute,
 };

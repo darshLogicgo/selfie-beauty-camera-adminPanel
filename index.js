@@ -43,7 +43,7 @@ connectDB();
 
 // helper.sendFCMNotification({
 //   fcmToken:
-//     "fousvDhKQJ634STPRRUFly:APA91bHTTKlQxmVYxnDVqKuvn3Mr0T5Z6a5ylMdOg1oLSCQ0CXpnk3pF0omX84QCebDVpSbCJl8bKralsOuMcakhChNTYtbT_b0P0cjCrhFomfsuRnE3PsI",
+//     "fK-VoKmpSACQp7S0dfGmKU:APA91bGiPGpNBaf0L-th0mdjuutDctegNir8Qd0xOuHJ3bBlXo8DNH9Ez7cbCBT7HnGwpilJLDcEIn-aysjuAMeCBgx7OJnwlrhurkK1i9Mm91lO9C_2xe4",
 //   title: "Test Notification",
 //   description: "This is a test notification",
 // });
@@ -99,6 +99,9 @@ app.use("/api/v1/dashboard", router.dashboardRoute);
 
 // Subscription Routes
 app.use("/api/v1/subscription", router.subscriptionRoute);
+
+// Notification Routes
+app.use("/api/v1/notification", router.notificationRoute);
 
 // Initialize Socket.IO
 initializeSocket(server);

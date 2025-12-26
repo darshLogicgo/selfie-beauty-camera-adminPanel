@@ -117,6 +117,7 @@ const guestLogin = {
     }),
     fcmToken: Joi.string().allow(null, "").optional(),
     country: Joi.string().allow(null, "").optional(),
+    appVersion: Joi.string().allow(null, "").optional().trim(),
   }),
 };
 

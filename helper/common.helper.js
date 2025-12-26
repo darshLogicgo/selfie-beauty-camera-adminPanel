@@ -137,7 +137,7 @@ const hashToken = (token) => {
 };
 
 // ------------- Send FCM Notification -------------
-const sendFCMNotification = async ({ fcmToken, title, description }) => {
+const sendFCMNotification = async ({ fcmToken, title, description, image, screenName, imageUrl, generatedImageTitle }) => {
   try {
     // Validate inputs
     if (!fcmToken) {
@@ -159,9 +159,26 @@ const sendFCMNotification = async ({ fcmToken, title, description }) => {
       notification: {
         title: title,
         body: description,
+        ...(image && { image: image }), // Add image if provided (for notification icon)
       },
       token: fcmToken,
     };
+
+    // Add data payload for deep linking/navigation
+    // FCM requires all data values to be strings
+    if (screenName || imageUrl || generatedImageTitle) {
+      message.data = {};
+      if (screenName) {
+        message.data.screenName = String(screenName);
+      }
+      if (imageUrl) {
+        message.data.imageUrl = String(imageUrl);
+      }
+      if (generatedImageTitle) {
+        message.data.generatedImageTitle = String(generatedImageTitle);
+      }
+    }
+    console.log("message", message);
 
     // Send the notification
     const response = await firebaseAdmin.messaging().send(message);
