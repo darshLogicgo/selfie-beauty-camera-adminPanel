@@ -18,6 +18,7 @@ const mediaUpload = upload.fields([
   { name: "img_rec", maxCount: 1 },
   { name: "video_sqr", maxCount: 1 },
   { name: "video_rec", maxCount: 1 },
+  { name: "asset_images", maxCount: 50 }, // Allow up to 50 asset images
 ]);
 
 /**
@@ -134,6 +135,66 @@ route.patch(
   verifyRole([enums.userRoleEnum.ADMIN]),
   validate(categoryValidation.updateCategoryValidation),
   categoryController.toggleCategoryPremium
+);
+
+/**
+ * GET /api/v1/categories/:id/assets
+ * Get category assets by ID (Client side - Authenticated)
+ * Must be before /:id route to avoid conflict
+ */
+route.get(
+  "/:id/assets",
+  verifyToken,
+  categoryController.getCategoryAssets
+);
+
+/**
+ * POST /api/v1/categories/:id/assets
+ * Upload asset images (Admin only)
+ */
+route.post(
+  "/:id/assets",
+  verifyToken,
+  verifyRole([enums.userRoleEnum.ADMIN]),
+  mediaUpload,
+  categoryController.uploadAssetImages
+);
+
+/**
+ * PATCH /api/v1/categories/:id/assets
+ * Manage category assets - add/remove URLs or upload files (Admin only)
+ */
+route.patch(
+  "/:id/assets",
+  verifyToken,
+  verifyRole([enums.userRoleEnum.ADMIN]),
+  mediaUpload,
+  validate(categoryValidation.manageCategoryAssetValidation),
+  categoryController.manageCategoryAssets
+);
+
+/**
+ * DELETE /api/v1/categories/:id/assets/delete
+ * Delete single asset image (Admin only)
+ * Must be before /:id route to prevent accidental category deletion
+ */
+route.delete(
+  "/:id/assets/delete",
+  verifyToken,
+  verifyRole([enums.userRoleEnum.ADMIN]),
+  categoryController.deleteAssetImage
+);
+
+/**
+ * PATCH /api/v1/categories/:id/assets/premium
+ * Update individual asset properties (isPremium, imageCount, prompt) (Admin only)
+ */
+route.patch(
+  "/:id/assets/premium",
+  verifyToken,
+  verifyRole([enums.userRoleEnum.ADMIN]),
+  validate(categoryValidation.updateCategoryAssetValidation),
+  categoryController.updateAssetImage
 );
 
 

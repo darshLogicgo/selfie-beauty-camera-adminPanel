@@ -3,6 +3,7 @@ import Category from "../models/category.model.js";
 import categoryService from "../services/category.service.js";
 import { apiResponse } from "../helper/api-response.helper.js";
 import { StatusCodes } from "http-status-codes";
+import helper from "../helper/common.helper.js";
 
 /**
  * Get all categories for More selection (Admin)
@@ -109,6 +110,8 @@ const getMoreCategories = async (req, res) => {
         imageCount: 1,
         isPremium: 1,
         prompt: 1,
+        android_appVersion: 1,
+        ios_appVersion: 1,
         createdAt: 1,
         updatedAt: 1,
       })
@@ -122,12 +125,21 @@ const getMoreCategories = async (req, res) => {
       imageCount: category.imageCount || 1,
     }));
 
+    // Filter categories by user's appVersion
+    // Logic: If user doesn't have appVersion → show only categories without platform appVersion
+    // If user has appVersion → show only if userVersion >= categoryVersion
+    const user = req.user || null;
+    const filteredCategories = helper.filterCategoriesByAppVersion(
+      user,
+      transformedCategories
+    );
+
     return apiResponse({
       res,
       statusCode: StatusCodes.OK,
       status: true,
       message: "More categories fetched successfully",
-      data: transformedCategories,
+      data: filteredCategories,
     });
   } catch (error) {
     console.error("Get More Categories Error:", error);

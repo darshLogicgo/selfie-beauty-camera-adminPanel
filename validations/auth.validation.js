@@ -118,6 +118,9 @@ const guestLogin = {
     fcmToken: Joi.string().allow(null, "").optional(),
     country: Joi.string().allow(null, "").optional(),
     appVersion: Joi.string().allow(null, "").optional().trim(),
+    provider: Joi.string().valid("android", "ios").optional().messages({
+      "any.only": "Provider must be either 'android' or 'ios'",
+    }),
   }),
 };
 

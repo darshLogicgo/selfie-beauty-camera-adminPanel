@@ -908,7 +908,7 @@ const loginByApple = async (req, res) => {
 // For guest login
 const guestLogin = async (req, res) => {
   try {
-    const { deviceId, fcmToken, country, appVersion } = req.body;
+    const { deviceId, fcmToken, country, appVersion, provider } = req.body;
 
     if (!deviceId) {
       return apiResponse({
@@ -916,6 +916,17 @@ const guestLogin = async (req, res) => {
         status: false,
         statusCode: StatusCodes.BAD_REQUEST,
         message: "Device ID is required",
+        data: null,
+      });
+    }
+
+    // Validate provider if provided
+    if (provider && !Object.values(enums.authProviderEnum).includes(provider)) {
+      return apiResponse({
+        res,
+        status: false,
+        statusCode: StatusCodes.BAD_REQUEST,
+        message: "Invalid provider. Must be 'android' or 'ios'",
         data: null,
       });
     }
@@ -952,7 +963,7 @@ const guestLogin = async (req, res) => {
         username,
         isVerified: true,
         role: enums.userRoleEnum.USER,
-        provider: enums.authProviderEnum.EMAIL,
+        provider: provider || null, // Default to ANDROID if not provided
         // Initialize subscription fields for new users
         subscriptionAppUserId: null,
         isSubscribe: false,
@@ -975,7 +986,7 @@ const guestLogin = async (req, res) => {
 
       user = await User.create(newUserData);
     } else {
-      // Update fcmToken, country, and appVersion if provided for existing user
+      // Update fcmToken, country, appVersion, and provider if provided for existing user
       let updateData = {};
       if (fcmToken) {
         updateData.fcmToken = fcmToken;
@@ -985,6 +996,9 @@ const guestLogin = async (req, res) => {
       }
       if (appVersion) {
         updateData.appVersion = appVersion;
+      }
+      if (provider) {
+        updateData.provider = provider;
       }
       if (Object.keys(updateData).length > 0) {
         await userService.update(user._id, updateData);

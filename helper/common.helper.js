@@ -136,6 +136,126 @@ const hashToken = (token) => {
   return crypto.createHash("sha256").update(token).digest("hex");
 };
 
+// ------------- Version Comparison -------------
+/**
+ * Compare two version strings (e.g., "1.2.30", "2.0.0")
+ * Returns true if userVersion >= categoryVersion
+ * @param {string} userVersion - User's app version (e.g., "1.2.30")
+ * @param {string} categoryVersion - Category's required app version (e.g., "1.2.30")
+ * @returns {boolean} - True if userVersion >= categoryVersion
+ */
+const compareAppVersions = (userVersion, categoryVersion) => {
+  try {
+    // Normalize versions: remove leading/trailing whitespace
+    const userVer = String(userVersion).trim();
+    const catVer = String(categoryVersion).trim();
+    console.log("userVer", userVer);
+    console.log("catVer", catVer);
+
+    // Parse versions: split by dots and convert to numbers
+    const userParts = userVer.split(".").map((part) => {
+      const num = parseInt(part, 10);
+      return isNaN(num) ? 0 : num;
+    });
+
+    const catParts = catVer.split(".").map((part) => {
+      const num = parseInt(part, 10);
+      return isNaN(num) ? 0 : num;
+    });
+
+    console.log("userParts", userParts);
+    console.log("catParts", catParts);
+
+    // Normalize to same length by padding with zeros
+    const maxLength = Math.max(userParts.length, catParts.length);
+    while (userParts.length < maxLength) userParts.push(0);
+    while (catParts.length < maxLength) catParts.push(0);
+
+    // Compare each part
+    for (let i = 0; i < maxLength; i++) {
+      if (userParts[i] > catParts[i]) {
+        return true; // User version is greater
+      }
+      if (userParts[i] < catParts[i]) {
+        return false; // User version is less
+      }
+    }
+
+    // Versions are equal
+    return true;
+  } catch (error) {
+    console.error("Error comparing app versions:", error);
+    // On error, don't show (fail closed)
+    return false;
+  }
+};
+
+/**
+ * Filter categories based on user's appVersion and platform (provider)
+ * Logic:
+ * - If user doesn't have appVersion (null or missing) → Show only categories that don't have platform-specific appVersion
+ * - If user has appVersion:
+ *   - If category doesn't have platform-specific appVersion → Show (no restriction)
+ *   - If category has platform-specific appVersion → Show only if userVersion >= categoryVersion
+ * @param {Object} user - User object (may have appVersion and provider fields)
+ * @param {Array} categories - Array of category objects (may have android_appVersion and ios_appVersion fields)
+ * @returns {Array} - Filtered categories array
+ */
+const filterCategoriesByAppVersion = (user, categories) => {
+  try {
+    // Check if user has appVersion
+    const userHasAppVersion = user && user.appVersion && String(user.appVersion).trim() !== "" && user.appVersion !== null;
+    
+    // Get user's platform (provider)
+    const userProvider = user && user.provider ? String(user.provider).trim().toLowerCase() : null;
+    
+    // Determine which platform version field to check based on user's provider
+    const platformVersionField = userProvider === "android" ? "android_appVersion" : userProvider === "ios" ? "ios_appVersion" : null;
+
+    if (!userHasAppVersion) {
+      // If user doesn't have appVersion, show only categories that don't have platform-specific appVersion
+      return categories.filter((category) => {
+        if (!platformVersionField) {
+          // If platform is unknown, show categories without any appVersion
+          return (!category.android_appVersion || String(category.android_appVersion).trim() === "" || category.android_appVersion === null) &&
+                 (!category.ios_appVersion || String(category.ios_appVersion).trim() === "" || category.ios_appVersion === null);
+        }
+        
+        // Check platform-specific version field
+        const categoryPlatformVersion = category[platformVersionField];
+        return !categoryPlatformVersion || String(categoryPlatformVersion).trim() === "" || categoryPlatformVersion === null;
+      });
+    }
+
+    // User has appVersion
+    const userAppVersion = String(user.appVersion).trim();
+
+    // If platform is unknown, don't filter (show all)
+    if (!platformVersionField) {
+      return categories;
+    }
+
+    // Filter categories based on platform-specific version
+    return categories.filter((category) => {
+      const categoryPlatformVersion = category[platformVersionField];
+      
+      // If category doesn't have platform-specific appVersion, show it (no restriction)
+      if (!categoryPlatformVersion || String(categoryPlatformVersion).trim() === "" || categoryPlatformVersion === null) {
+        return true;
+      }
+
+      // If category has platform-specific appVersion, compare with user's version
+      const categoryAppVersion = String(categoryPlatformVersion).trim();
+      // Show only if userVersion >= categoryVersion
+      return compareAppVersions(userAppVersion, categoryAppVersion);
+    });
+  } catch (error) {
+    console.error("Error filtering categories by appVersion:", error);
+    // On error, return empty array (fail closed)
+    return [];
+  }
+};
+
 // ------------- Send FCM Notification -------------
 const sendFCMNotification = async ({ fcmToken, title, description, image, screenName, imageUrl, generatedImageTitle }) => {
   try {
@@ -213,4 +333,6 @@ export default {
   createId,
   sendFCMNotification,
   hashToken,
+  compareAppVersions,
+  filterCategoriesByAppVersion,
 };

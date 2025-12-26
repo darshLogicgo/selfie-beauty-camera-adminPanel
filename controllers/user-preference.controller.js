@@ -5,6 +5,7 @@ import UserPreference from "../models/user-preference.model.js";
 import categoryService from "../services/category.service.js";
 import userPreferenceService from "../services/user-preference.service.js";
 import { apiResponse } from "../helper/api-response.helper.js";
+import helper from "../helper/common.helper.js";
 
 /**
  * Get ALL active categories sorted by userPreferenceOrder (Admin/Client side)
@@ -409,22 +410,12 @@ const updateUserPreferenceOrder = async (req, res) => {
  */
 const getUserCategoriesByPreference = async (req, res) => {
   try {
-    console.log("[User Preference API] Request received at /user-preference/list");
     
     // Get all active categories sorted by userPreferenceOrder
     const categories = await categoryService.getUserCategoriesByPreference();
-    
-    console.log(`[User Preference API] Found ${categories.length} categories`);
-    
-    // Debug: Log first category to see what fields are available
-    if (categories.length > 0) {
-      console.log("[User Preference API] Sample category from DB:", JSON.stringify(categories[0], null, 2));
-      console.log("[User Preference API] isPremium value:", categories[0].isPremium);
-      console.log("[User Preference API] prompt value:", categories[0].prompt);
-    }
 
     // Return only the specified fields - explicitly include isPremium and prompt
-    const filteredCategories = categories.map((category) => {
+    const mappedCategories = categories.map((category) => {
       const result = {
         _id: category._id,
         name: category.name,
@@ -435,16 +426,20 @@ const getUserCategoriesByPreference = async (req, res) => {
         status: category.status,
         isPremium: category.isPremium !== undefined && category.isPremium !== null ? Boolean(category.isPremium) : false,
         prompt: category.prompt !== undefined && category.prompt !== null ? String(category.prompt) : "",
+        android_appVersion: category.android_appVersion || null,
+        ios_appVersion: category.ios_appVersion || null,
       };
       return result;
     });
-    
-    // Debug: Log first filtered category to verify fields
-    if (filteredCategories.length > 0) {
-      console.log("[User Preference API] Sample filtered category:", JSON.stringify(filteredCategories[0], null, 2));
-      console.log("[User Preference API] Final isPremium:", filteredCategories[0].isPremium);
-      console.log("[User Preference API] Final prompt:", filteredCategories[0].prompt);
-    }
+
+    // Filter categories by user's appVersion
+    // Logic: If user doesn't have appVersion → show only categories without platform appVersion
+    // If user has appVersion → show only if userVersion >= categoryVersion
+    const user = req.user || null;
+    const filteredCategories = helper.filterCategoriesByAppVersion(
+      user,
+      mappedCategories
+    );
 
     return apiResponse({
       res,
