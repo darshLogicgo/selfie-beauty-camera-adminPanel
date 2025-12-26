@@ -10,8 +10,9 @@ import helper from "../helper/common.helper.js";
 import mongoose from "mongoose";
 
 /**
- * Get home page data with 7 sections (Client side)
+ * Get home page data with 8 sections (Client side)
  * Returns only active categories/subcategories for each section
+ * Section 8 returns empty array if no subcategories have isSection8: true
  * @route GET /api/v1/home
  * @access Public
  */
@@ -44,12 +45,16 @@ export const getHomeData = async (req, res) => {
         } else if (mongoose.Types.ObjectId.isValid(userId)) {
           userObjectIdForClick = new mongoose.Types.ObjectId(userId);
         } else {
-          console.error(`[Home API] Invalid userId format for click data: ${userId}`);
+          console.error(
+            `[Home API] Invalid userId format for click data: ${userId}`
+          );
           throw new Error(`Invalid userId format: ${userId}`);
         }
-        
-        userClickData = await MediaClick.findOne({ userId: userObjectIdForClick }).lean();
-        
+
+        userClickData = await MediaClick.findOne({
+          userId: userObjectIdForClick,
+        }).lean();
+
         if (userClickData && userClickData.categories) {
           userClickData.categories.forEach((cat) => {
             if (cat.categoryId) {
@@ -78,7 +83,7 @@ export const getHomeData = async (req, res) => {
           console.error(`[Home API] Invalid userId format: ${userId}`);
           throw new Error(`Invalid userId format: ${userId}`);
         }
-        
+
         const userPreferences = await UserPreference.find({
           userId: userObjectId,
           isDeleted: false,
@@ -91,13 +96,9 @@ export const getHomeData = async (req, res) => {
         // Note: order can be 0, so we use nullish coalescing instead of || to preserve 0 values
         userPreferences.forEach((pref) => {
           if (pref.categoryId) {
-            userPreferenceMap.set(
-              pref.categoryId.toString(),
-              pref.order ?? 0
-            );
+            userPreferenceMap.set(pref.categoryId.toString(), pref.order ?? 0);
           }
         });
-        
       } catch (error) {
         console.error("Error fetching user preferences:", error);
         // Continue with default behavior if error occurs
@@ -173,21 +174,21 @@ export const getHomeData = async (req, res) => {
       const clickCountCategoryIds = Array.from(clickCountMap.keys());
       // Only add if not already in the conditions
       const existingIds = new Set();
-      section2OrConditions.forEach(condition => {
+      section2OrConditions.forEach((condition) => {
         if (condition._id && condition._id.$in) {
-          condition._id.$in.forEach(id => existingIds.add(id.toString()));
+          condition._id.$in.forEach((id) => existingIds.add(id.toString()));
         } else if (condition._id) {
           existingIds.add(condition._id.toString());
         }
       });
-      
-      const newClickCountIds = clickCountCategoryIds.filter(id => !existingIds.has(id));
+
+      const newClickCountIds = clickCountCategoryIds.filter(
+        (id) => !existingIds.has(id)
+      );
       if (newClickCountIds.length > 0) {
         section2OrConditions.push({
           _id: {
-            $in: newClickCountIds.map(
-              (id) => new mongoose.Types.ObjectId(id)
-            ),
+            $in: newClickCountIds.map((id) => new mongoose.Types.ObjectId(id)),
           },
         });
       }
@@ -198,28 +199,33 @@ export const getHomeData = async (req, res) => {
       const userPreferenceCategoryIds = Array.from(userPreferenceMap.keys());
       // Only add if not already in the conditions
       const existingIds = new Set();
-      section2OrConditions.forEach(condition => {
+      section2OrConditions.forEach((condition) => {
         if (condition._id && condition._id.$in) {
-          condition._id.$in.forEach(id => existingIds.add(id.toString()));
+          condition._id.$in.forEach((id) => existingIds.add(id.toString()));
         } else if (condition._id) {
           existingIds.add(condition._id.toString());
         }
       });
-      
-      const newPreferenceIds = userPreferenceCategoryIds.filter(id => !existingIds.has(id));
+
+      const newPreferenceIds = userPreferenceCategoryIds.filter(
+        (id) => !existingIds.has(id)
+      );
       if (newPreferenceIds.length > 0) {
         section2OrConditions.push({
           _id: {
-            $in: newPreferenceIds.map(
-              (id) => new mongoose.Types.ObjectId(id)
-            ),
+            $in: newPreferenceIds.map((id) => new mongoose.Types.ObjectId(id)),
           },
         });
       }
     }
 
     // If we have any special conditions, use $or, otherwise default to isSection2: true
-    if (section2OrConditions.length > 1 || priorityCategoryId || userPreferenceMap.size > 0 || clickCountMap.size > 0) {
+    if (
+      section2OrConditions.length > 1 ||
+      priorityCategoryId ||
+      userPreferenceMap.size > 0 ||
+      clickCountMap.size > 0
+    ) {
       section2Query.$or = section2OrConditions;
     } else {
       // Default: only show categories with isSection2: true
@@ -235,6 +241,7 @@ export const getHomeData = async (req, res) => {
       section5Subcategories,
       section6Categories,
       section7Categories,
+      section8Subcategories,
     ] = await Promise.all([
       // Section 1: Featured Categories
       Category.find(section1Query)
@@ -401,6 +408,30 @@ export const getHomeData = async (req, res) => {
         .sort({ section7Order: 1, createdAt: 1 })
         .lean()
         .hint({ isDeleted: 1, status: 1, isSection7: 1, section7Order: 1 }),
+
+      // Section 8: Subcategories
+      Subcategory.find({
+        status: true,
+        isSection8: true,
+      })
+        .select({
+          categoryId: 1,
+          subcategoryTitle: 1,
+          img_sqr: 1,
+          img_rec: 1,
+          video_sqr: 1,
+          video_rec: 1,
+          status: 1,
+          order: 1,
+          asset_images: 1,
+          isPremium: 1,
+          selectImage: 1,
+          createdAt: 1,
+          updatedAt: 1,
+        })
+        .sort({ section8Order: 1, createdAt: 1 })
+        .lean()
+        .hint({ status: 1, isSection8: 1, section8Order: 1 }),
     ]);
 
     // Sort Section 1 categories based on priority categoryId and user click data
@@ -572,7 +603,10 @@ export const getHomeData = async (req, res) => {
             otherCategories2 = section2Categories;
           }
         } catch (error) {
-          console.error("Error fetching priority category for Section 2:", error);
+          console.error(
+            "Error fetching priority category for Section 2:",
+            error
+          );
           otherCategories2 = section2Categories;
         }
       }
@@ -585,15 +619,15 @@ export const getHomeData = async (req, res) => {
     // 2. Second: Categories with user preference (sorted by user's preference order from UserPreference model)
     // 3. Third: Categories sorted by click count (descending - higher clicks first)
     // 4. Fourth: Categories sorted by admin order (section2Order)
-    
+
     otherCategories2 = [...otherCategories2].sort((a, b) => {
       const aId = a._id.toString();
       const bId = b._id.toString();
-      
+
       // Check if categories are in user's preferences
       const aHasUserPreference = userPreferenceMap.has(aId);
       const bHasUserPreference = userPreferenceMap.has(bId);
-      
+
       // Priority 1: Categories with user preference come first
       if (aHasUserPreference && !bHasUserPreference) {
         return -1; // a comes first
@@ -601,7 +635,7 @@ export const getHomeData = async (req, res) => {
       if (!aHasUserPreference && bHasUserPreference) {
         return 1; // b comes first
       }
-      
+
       // Priority 2: If both have user preference, sort by user's preference order (from UserPreference model)
       if (aHasUserPreference && bHasUserPreference) {
         const aUserOrder = userPreferenceMap.get(aId) ?? 999999;
@@ -610,23 +644,23 @@ export const getHomeData = async (req, res) => {
           return aUserOrder - bUserOrder; // Ascending order
         }
       }
-      
+
       // Priority 3: Sort by click count (descending - higher clicks first)
       // This applies to all categories (both with and without user preferences)
       const aClickCount = clickCountMap.get(aId) || 0;
       const bClickCount = clickCountMap.get(bId) || 0;
-      
+
       if (aClickCount !== bClickCount) {
         return bClickCount - aClickCount; // Descending order (higher clicks first)
       }
-      
+
       // Priority 4: If click counts are same, sort by admin order (section2Order)
       const aAdminOrder = a.section2Order || 999999;
       const bAdminOrder = b.section2Order || 999999;
       if (aAdminOrder !== bAdminOrder) {
         return aAdminOrder - bAdminOrder; // Ascending order
       }
-      
+
       // Final sort: by createdAt for consistency
       return new Date(a.createdAt) - new Date(b.createdAt);
     });
@@ -638,7 +672,8 @@ export const getHomeData = async (req, res) => {
       sortedSection2Categories = otherCategories2;
     }
 
-    // Build response with 7 sections (all with title structure)
+    // Build response with 8 sections (all with title structure)
+    // For section 8, if no subcategories have isSection8: true, return empty array
     const responseData = {
       section1: {
         title: "image",
@@ -667,6 +702,10 @@ export const getHomeData = async (req, res) => {
       section7: {
         title: homeSettings.section7Title || "AI Tools",
         categories: section7Categories, // AI Tools
+      },
+      section8: {
+        title: "image",
+        subcategories: section8Subcategories || [], // Subcategories - empty array if none selected
       },
     };
 
@@ -708,6 +747,7 @@ const getAllSectionsData = async (req, res) => {
       section5Subcategories,
       section6Categories,
       section7Categories,
+      section8Subcategories,
     ] = await Promise.all([
       // Section 1: Featured Categories - All categories (for admin selection)
       categoryService
@@ -799,6 +839,8 @@ const getAllSectionsData = async (req, res) => {
           section4Order: 1,
           isSection5: 1,
           section5Order: 1,
+          isSection8: 1,
+          section8Order: 1,
           createdAt: 1,
           updatedAt: 1,
           __v: 1,
@@ -828,6 +870,8 @@ const getAllSectionsData = async (req, res) => {
           section4Order: 1,
           isSection5: 1,
           section5Order: 1,
+          isSection8: 1,
+          section8Order: 1,
           createdAt: 1,
           updatedAt: 1,
           __v: 1,
@@ -857,6 +901,8 @@ const getAllSectionsData = async (req, res) => {
           section4Order: 1,
           isSection5: 1,
           section5Order: 1,
+          isSection8: 1,
+          section8Order: 1,
           createdAt: 1,
           updatedAt: 1,
           __v: 1,
@@ -931,6 +977,37 @@ const getAllSectionsData = async (req, res) => {
         })
         .sort({ section7Order: 1, createdAt: 1 })
         .lean(),
+
+      // Section 8: Subcategories - All subcategories (for admin selection)
+      Subcategory.find({ status: true })
+        .select({
+          categoryId: 1,
+          subcategoryTitle: 1,
+          img_sqr: 1,
+          img_rec: 1,
+          video_sqr: 1,
+          video_rec: 1,
+          status: 1,
+          order: 1,
+          asset_images: 1,
+          isPremium: 1,
+          selectImage: 1,
+          isAiWorld: 1,
+          aiWorldOrder: 1,
+          isSection3: 1,
+          section3Order: 1,
+          isSection4: 1,
+          section4Order: 1,
+          isSection5: 1,
+          section5Order: 1,
+          isSection8: 1,
+          section8Order: 1,
+          createdAt: 1,
+          updatedAt: 1,
+          __v: 1,
+        })
+        .sort({ section8Order: 1, createdAt: 1 })
+        .lean(),
     ]);
 
     // Build response with same structure as public API
@@ -948,6 +1025,7 @@ const getAllSectionsData = async (req, res) => {
         title: homeSettings.section7Title || "AI Tools",
         categories: section7Categories, // Object with title and categories (like public API)
       },
+      section8: section8Subcategories, // Array directly (like sections 3, 4, 5)
     };
 
     return apiResponse({
@@ -1562,6 +1640,7 @@ const toggleCategorySection = async (req, res) => {
  * @route PATCH /api/v1/home/section3/:id
  * @route PATCH /api/v1/home/section4/:id
  * @route PATCH /api/v1/home/section5/:id
+ * @route PATCH /api/v1/home/section8/:id
  * @access Private (Admin)
  */
 const toggleSubcategorySection = async (req, res) => {
@@ -1586,6 +1665,7 @@ const toggleSubcategorySection = async (req, res) => {
       3: { isField: "isSection3", orderField: "section3Order" },
       4: { isField: "isSection4", orderField: "section4Order" },
       5: { isField: "isSection5", orderField: "section5Order" },
+      8: { isField: "isSection8", orderField: "section8Order" },
     };
 
     const sectionConfig = sectionMap[section];
@@ -1594,7 +1674,7 @@ const toggleSubcategorySection = async (req, res) => {
         res,
         statusCode: StatusCodes.BAD_REQUEST,
         status: false,
-        message: "Invalid section number. Valid sections: 3, 4, 5",
+        message: "Invalid section number. Valid sections: 3, 4, 5, 8",
         data: null,
       });
     }
@@ -1886,6 +1966,7 @@ const reorderCategorySection = async (req, res) => {
  * @route PATCH /api/v1/home/section3/reorder
  * @route PATCH /api/v1/home/section4/reorder
  * @route PATCH /api/v1/home/section5/reorder
+ * @route PATCH /api/v1/home/section8/reorder
  * @access Private (Admin)
  */
 const reorderSubcategorySection = async (req, res) => {
@@ -1921,6 +2002,7 @@ const reorderSubcategorySection = async (req, res) => {
       3: { orderField: "section3Order" },
       4: { orderField: "section4Order" },
       5: { orderField: "section5Order" },
+      8: { orderField: "section8Order" },
     };
 
     const sectionConfig = sectionMap[section];
@@ -1929,7 +2011,7 @@ const reorderSubcategorySection = async (req, res) => {
         res,
         statusCode: StatusCodes.BAD_REQUEST,
         status: false,
-        message: "Invalid section number. Valid sections: 3, 4, 5",
+        message: "Invalid section number. Valid sections: 3, 4, 5, 8",
         data: null,
       });
     }
@@ -2196,7 +2278,7 @@ const bulkToggleCategorySections = async (req, res) => {
 
 /**
  * Bulk toggle subcategories in multiple sections (Admin)
- * Toggle multiple subcategories across sections 3, 4, 5 in one API call
+ * Toggle multiple subcategories across sections 3, 4, 5, 8 in one API call
  * @route PATCH /api/v1/home/subcategories/toggle
  * @access Private (Admin)
  */
@@ -2244,6 +2326,7 @@ const bulkToggleSubcategorySections = async (req, res) => {
       3: { isField: "isSection3" },
       4: { isField: "isSection4" },
       5: { isField: "isSection5" },
+      8: { isField: "isSection8" },
     };
 
     // Build bulk operations
@@ -2254,8 +2337,8 @@ const bulkToggleSubcategorySections = async (req, res) => {
       const subcategoryId = new mongoose.Types.ObjectId(item._id);
       const updateFields = { updatedAt: now };
 
-      // Process each section (3, 4, 5)
-      [3, 4, 5].forEach((sectionNum) => {
+      // Process each section (3, 4, 5, 8)
+      [3, 4, 5, 8].forEach((sectionNum) => {
         const sectionKey = `isSection${sectionNum}`;
         if (item[sectionKey] !== undefined) {
           updateFields[sectionKey] = Boolean(item[sectionKey]);
@@ -2279,7 +2362,7 @@ const bulkToggleSubcategorySections = async (req, res) => {
         statusCode: StatusCodes.BAD_REQUEST,
         status: false,
         message:
-          "No valid updates provided. Please specify isSection3, isSection4, or isSection5",
+          "No valid updates provided. Please specify isSection3, isSection4, isSection5, or isSection8",
         data: null,
       });
     }
@@ -2573,7 +2656,7 @@ const bulkReorderCategorySections = async (req, res) => {
 
 /**
  * Bulk reorder subcategories in multiple sections (Admin)
- * Reorder multiple sections (3, 4, 5) in one API call
+ * Reorder multiple sections (3, 4, 5, 8) in one API call
  * @route PATCH /api/v1/home/subcategories/reorder
  * @access Private (Admin)
  */
@@ -2607,11 +2690,12 @@ const bulkReorderSubcategorySections = async (req, res) => {
       3: { orderField: "section3Order" },
       4: { orderField: "section4Order" },
       5: { orderField: "section5Order" },
+      8: { orderField: "section8Order" },
     };
 
     // Validate section numbers
     const validSections = sectionsData.filter((section) =>
-      [3, 4, 5].includes(Number(section.section))
+      [3, 4, 5, 8].includes(Number(section.section))
     );
 
     if (validSections.length === 0) {
@@ -2619,10 +2703,22 @@ const bulkReorderSubcategorySections = async (req, res) => {
         res,
         statusCode: StatusCodes.BAD_REQUEST,
         status: false,
-        message: "Invalid section numbers. Valid sections: 3, 4, 5",
+        message: "Invalid section numbers. Valid sections: 3, 4, 5, 8",
         data: null,
       });
     }
+
+    // Fetch all subcategories once with all order fields needed (optimization)
+    const allSubcategoriesCache = await Subcategory.find({})
+      .select({
+        _id: 1,
+        section3Order: 1,
+        section4Order: 1,
+        section5Order: 1,
+        section8Order: 1,
+        createdAt: 1,
+      })
+      .lean();
 
     // Process each section
     const allBulkOps = [];
@@ -2645,11 +2741,15 @@ const bulkReorderSubcategorySections = async (req, res) => {
       );
       if (invalidIds.length > 0) continue;
 
-      // Get all subcategories for this section
-      const allSubcategories = await Subcategory.find({})
-        .select({ _id: 1, [sectionConfig.orderField]: 1 })
-        .sort({ [sectionConfig.orderField]: 1, createdAt: 1 })
-        .lean();
+      // Use cached subcategories data for this section
+      const allSubcategories = [...allSubcategoriesCache].sort((a, b) => {
+        const aOrder = a[sectionConfig.orderField] || 0;
+        const bOrder = b[sectionConfig.orderField] || 0;
+        if (aOrder !== bOrder) {
+          return aOrder - bOrder;
+        }
+        return new Date(a.createdAt) - new Date(b.createdAt);
+      });
 
       // Create map of new orders
       const newOrderMap = new Map();
@@ -2695,11 +2795,8 @@ const bulkReorderSubcategorySections = async (req, res) => {
         };
       } else {
         // Partial reorder - Handle order conflicts by shifting existing subcategories
-        // Get all subcategories in this section
-        const allSubcategoriesInSection = await Subcategory.find({})
-          .select({ _id: 1, [sectionConfig.orderField]: 1 })
-          .sort({ [sectionConfig.orderField]: 1, createdAt: 1 })
-          .lean();
+        // Use cached subcategories data (already sorted above)
+        const allSubcategoriesInSection = allSubcategories;
 
         // Create map of subcategories being updated with their new orders
         const updatedSubcategoryMap = new Map();

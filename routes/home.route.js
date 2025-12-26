@@ -9,14 +9,15 @@ const route = express.Router();
 
 /**
  * GET /api/v1/home
- * Get home page data with 7 sections (Client side - Authenticated)
+ * Get home page data with 8 sections (Client side - Authenticated)
+ * Section 8 returns empty array if no subcategories have isSection8: true
  */
 route.get("/", verifyToken, homeController.getHomeData);
 
 /**
  * GET /api/v1/home/sections/all
  * Get all sections data in one response (Admin only)
- * Returns all categories and subcategories for all 7 sections
+ * Returns all categories and subcategories for all 8 sections
  */
 route.get(
   "/sections/all",
@@ -184,6 +185,17 @@ route.patch(
 );
 
 /**
+ * PATCH /api/v1/home/section8/reorder
+ * Bulk reorder Section 8 subcategories (Admin only)
+ */
+route.patch(
+  "/section8/reorder",
+  verifyToken,
+  verifyRole([enums.userRoleEnum.ADMIN]),
+  homeController.reorderSubcategorySection
+);
+
+/**
  * PATCH /api/v1/home/categories/toggle
  * Bulk toggle categories in multiple sections (1, 2, 6, 7) in one call (Admin only)
  */
@@ -299,6 +311,17 @@ route.patch(
  */
 route.patch(
   "/section5/:id",
+  verifyToken,
+  verifyRole([enums.userRoleEnum.ADMIN]),
+  homeController.toggleSubcategorySection
+);
+
+/**
+ * PATCH /api/v1/home/section8/:id
+ * Toggle subcategory Section 8 status (Admin only)
+ */
+route.patch(
+  "/section8/:id",
   verifyToken,
   verifyRole([enums.userRoleEnum.ADMIN]),
   homeController.toggleSubcategorySection

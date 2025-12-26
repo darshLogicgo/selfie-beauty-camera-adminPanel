@@ -112,7 +112,7 @@ app.use(errorHandler);
 // start server
 server.listen(config.port, async () => {
   logger.info(`Server is running on port http://localhost:${config.port}`);
-  
+
   // Start agenda
   await agenda.start();
   logger.info("Agenda started");
@@ -127,47 +127,47 @@ server.listen(config.port, async () => {
   // Schedule cron jobs here
   // Example: await agenda.every("1 0 * * *", cronNameEnum.EXAMPLE_CRON); // Runs daily at 00:01
   // logger.info("Example cron scheduled");
-  
+
   // AI Edit Reminder Cron - Runs daily at 00:01 to notify users with >= 1 edit in last 7 days
   // await agenda.every("1 0 * * *", cronNameEnum.AI_EDIT_REMINDER);
   // logger.info("AI Edit Reminder cron scheduled");
-  
+
   // Core Active Users Cron - Runs daily at 00:01 to notify users with >= 3 edits in last 7 days
   // await agenda.every("1 0 * * *", cronNameEnum.CORE_ACTIVE_USERS);
   // logger.info("Core Active Users cron scheduled");
-  
+
   // Recently Active Users Cron - Runs daily at 00:01 to notify users with last edit > 48h and ≤ 7 days
   // await agenda.every("1 0 * * *", cronNameEnum.RECENTLY_ACTIVE_USERS);
   // logger.info("Recently Active Users cron scheduled");
-  
+
   // Inactive Users Cron - Runs daily at 00:01 to notify users with last edit > 7 days and ≤ 30 days
   // await agenda.every("1 0 * * *", cronNameEnum.INACTIVE_USERS);
   // logger.info("Inactive Users cron scheduled");
-  
+
   // Churned Users Cron - Runs daily at 00:01 to notify users with no edits in last 30 days
   // await agenda.every("1 0 * * *", cronNameEnum.CHURNED_USERS);
   // logger.info("Churned Users cron scheduled");
-  
+
   // Viral Users Cron - Runs daily at 00:01 to notify users with edit_shared >= 1 in last 90 days
   // await agenda.every("1 0 * * *", cronNameEnum.VIRAL_USERS);
   // logger.info("Viral Users cron scheduled");
-  
+
   // Saved Edit Users Cron - Runs daily at 00:01 to notify users with edit_saved >= 2 in last 30 days
   // await agenda.every("1 0 * * *", cronNameEnum.SAVED_EDIT_USERS);
   // logger.info("Saved Edit Users cron scheduled");
-  
+
   // Style Opened Users Cron - Runs daily at 00:01 to notify users with style_opened >= 3 in last 14 days
   // await agenda.every("1 0 * * *", cronNameEnum.STYLE_OPENED_USERS);
   // logger.info("Style Opened Users cron scheduled");
-  
+
   // Streak Users Cron - Runs daily at 00:01 to notify users with streak >= 3 days when streak breaks
   // await agenda.every("1 0 * * *", cronNameEnum.STREAK_USERS);
   // logger.info("Streak Users cron scheduled");
-  
+
   // Almost Subscribers Cron - Runs daily at 00:01 to notify users with paywall opened in last 14 days but no purchase
   // await agenda.every("1 0 * * *", cronNameEnum.ALMOST_SUBSCRIBERS);
   // logger.info("Almost Subscribers cron scheduled");
-  
+
   // Paywall Dismissed Users Cron - Runs daily at 00:01 to notify users with paywall dismissed in last 7 days
   // await agenda.every("1 0 * * *", cronNameEnum.PAYWALL_DISMISSED_USERS);
   // logger.info("Paywall Dismissed Users cron scheduled");
