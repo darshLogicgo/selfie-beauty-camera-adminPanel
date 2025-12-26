@@ -306,6 +306,8 @@ export const getHomeData = async (req, res) => {
           asset_images: 1,
           isPremium: 1,
           selectImage: 1,
+          android_appVersion: 1,
+          ios_appVersion: 1,
           createdAt: 1,
           updatedAt: 1,
         })
@@ -330,6 +332,8 @@ export const getHomeData = async (req, res) => {
           asset_images: 1,
           isPremium: 1,
           selectImage: 1,
+          android_appVersion: 1,
+          ios_appVersion: 1,
           createdAt: 1,
           updatedAt: 1,
         })
@@ -354,6 +358,8 @@ export const getHomeData = async (req, res) => {
           asset_images: 1,
           isPremium: 1,
           selectImage: 1,
+          android_appVersion: 1,
+          ios_appVersion: 1,
           createdAt: 1,
           updatedAt: 1,
         })
@@ -426,6 +432,8 @@ export const getHomeData = async (req, res) => {
           asset_images: 1,
           isPremium: 1,
           selectImage: 1,
+          android_appVersion: 1,
+          ios_appVersion: 1,
           createdAt: 1,
           updatedAt: 1,
         })
@@ -672,6 +680,44 @@ export const getHomeData = async (req, res) => {
       sortedSection2Categories = otherCategories2;
     }
 
+    // Get user app version and provider for filtering
+    const userAppVersion = req.user?.appVersion;
+    const userProvider = req.user?.provider;
+
+    console.log('=== HOME API VERSION FILTERING DEBUG ===');
+    console.log('User app version:', userAppVersion);
+    console.log('User provider:', userProvider);
+    console.log('Section3 subcategories before filtering:', section3Subcategories.length);
+    console.log('Section4 subcategories before filtering:', section4Subcategories.length);
+    console.log('Section5 subcategories before filtering:', section5Subcategories.length);
+    console.log('Section8 subcategories before filtering:', section8Subcategories.length);
+
+    // Filter subcategories by app version if user is logged in
+    const filteredSection3Subcategories = helper.filterSubcategoriesByVersion(section3Subcategories, userAppVersion, userProvider);
+    const filteredSection4Subcategories = helper.filterSubcategoriesByVersion(section4Subcategories, userAppVersion, userProvider);
+    const filteredSection5Subcategories = helper.filterSubcategoriesByVersion(section5Subcategories, userAppVersion, userProvider);
+    const filteredSection8Subcategories = helper.filterSubcategoriesByVersion(section8Subcategories, userAppVersion, userProvider);
+
+    console.log('Section3 subcategories after filtering:', filteredSection3Subcategories.length);
+    console.log('Section4 subcategories after filtering:', filteredSection4Subcategories.length);
+    console.log('Section5 subcategories after filtering:', filteredSection5Subcategories.length);
+    console.log('Section8 subcategories after filtering:', filteredSection8Subcategories.length);
+
+    // Debug: Check if the problematic subcategory is being filtered
+    const problemSubcategoryId = '694e5c79aa7e980e3dcfad87';
+    const foundInSection3 = filteredSection3Subcategories.find(sub => sub._id.toString() === problemSubcategoryId);
+    const foundInSection4 = filteredSection4Subcategories.find(sub => sub._id.toString() === problemSubcategoryId);
+    const foundInSection5 = filteredSection5Subcategories.find(sub => sub._id.toString() === problemSubcategoryId);
+    const foundInSection8 = filteredSection8Subcategories.find(sub => sub._id.toString() === problemSubcategoryId);
+    
+    console.log('Problem subcategory found in sections:', {
+      section3: !!foundInSection3,
+      section4: !!foundInSection4,
+      section5: !!foundInSection5,
+      section8: !!foundInSection8
+    });
+    console.log('=== END HOME API DEBUG ===');
+
     // Build response with 8 sections (all with title structure)
     // For section 8, if no subcategories have isSection8: true, return empty array
     const responseData = {
@@ -685,15 +731,15 @@ export const getHomeData = async (req, res) => {
       },
       section3: {
         title: "Ai Face Swap",
-        subcategories: section3Subcategories, // Subcategory Grid
+        subcategories: filteredSection3Subcategories, // Subcategory Grid (filtered by app version)
       },
       section4: {
         title: "image",
-        subcategories: section4Subcategories, // Subcategories
+        subcategories: filteredSection4Subcategories, // Subcategories (filtered by app version)
       },
       section5: {
         title: "image",
-        subcategories: section5Subcategories, // Subcategories
+        subcategories: filteredSection5Subcategories, // Subcategories (filtered by app version)
       },
       section6: {
         title: homeSettings.section6Title || "Enhance Tools",
@@ -705,7 +751,7 @@ export const getHomeData = async (req, res) => {
       },
       section8: {
         title: "image",
-        subcategories: section8Subcategories || [], // Subcategories - empty array if none selected
+        subcategories: filteredSection8Subcategories || [], // Subcategories - empty array if none selected (filtered by app version)
       },
     };
 

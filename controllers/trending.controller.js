@@ -4,6 +4,7 @@ import Subcategory from "../models/subcategory.js";
 import categoryService from "../services/category.service.js";
 import { apiResponse } from "../helper/api-response.helper.js";
 import { StatusCodes } from "http-status-codes";
+import helper from "../helper/common.helper.js";
 
 /**
  * Get all categories and subcategories for trending selection (Admin)
@@ -199,6 +200,8 @@ const getTrendingCategories = async (req, res) => {
               asset_images: 1,
               imageCount: 1,
               isPremium: 1,
+              android_appVersion: 1,
+              ios_appVersion: 1,
               createdAt: 1,
               updatedAt: 1,
             })
@@ -251,6 +254,8 @@ const getTrendingCategories = async (req, res) => {
           asset_images: 1,
           imageCount: 1,
           isPremium: 1,
+          android_appVersion: 1,
+          ios_appVersion: 1,
           createdAt: 1,
           updatedAt: 1,
         })
@@ -356,6 +361,34 @@ const getTrendingCategories = async (req, res) => {
       }
     );
 
+    // Get user app version and provider for filtering
+    const userAppVersion = req.user?.appVersion;
+    const userProvider = req.user?.provider;
+
+    console.log('=== TRENDING API VERSION FILTERING DEBUG ===');
+    console.log('User app version:', userAppVersion);
+    console.log('User provider:', userProvider);
+    console.log('Transformed subcategories before filtering:', transformedSubcategories.length);
+    console.log('Transformed section4 subcategories before filtering:', transformedSection4Subcategories.length);
+
+    // Filter subcategories by app version if user is logged in
+    const filteredTransformedSubcategories = helper.filterSubcategoriesByVersion(transformedSubcategories, userAppVersion, userProvider);
+    const filteredTransformedSection4Subcategories = helper.filterSubcategoriesByVersion(transformedSection4Subcategories, userAppVersion, userProvider);
+
+    console.log('Transformed subcategories after filtering:', filteredTransformedSubcategories.length);
+    console.log('Transformed section4 subcategories after filtering:', filteredTransformedSection4Subcategories.length);
+
+    // Debug: Check if the problematic subcategory is being filtered
+    const problemSubcategoryId = '694e5c79aa7e980e3dcfad87';
+    const foundInSection2 = filteredTransformedSubcategories.find(sub => sub._id.toString() === problemSubcategoryId);
+    const foundInSection4 = filteredTransformedSection4Subcategories.find(sub => sub._id.toString() === problemSubcategoryId);
+    
+    console.log('Problem subcategory found in sections:', {
+      section2: !!foundInSection2,
+      section4: !!foundInSection4
+    });
+    console.log('=== END TRENDING API DEBUG ===');
+
     // Build response with 4 sections
     const responseData = {
       section1: {
@@ -364,7 +397,7 @@ const getTrendingCategories = async (req, res) => {
       },
       section2: {
         title: "AI Face Swap",
-        subcategories: transformedSubcategories,
+        subcategories: filteredTransformedSubcategories, // Filtered by app version
       },
       section3: {
         title: "Enhancer Tools",
@@ -372,7 +405,7 @@ const getTrendingCategories = async (req, res) => {
       },
       section4: {
         title: "Trending Subcategories",
-        subcategories: transformedSection4Subcategories,
+        subcategories: filteredTransformedSection4Subcategories, // Filtered by app version
       },
     };
 

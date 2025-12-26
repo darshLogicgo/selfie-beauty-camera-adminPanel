@@ -136,8 +136,102 @@ const hashToken = (token) => {
   return crypto.createHash("sha256").update(token).digest("hex");
 };
 
+// Helper function to compare app versions
+// Returns true if userVersion >= subcategoryVersion
+const compareAppVersions = (userVersion, subcategoryVersion) => {
+  if (!userVersion || !subcategoryVersion) {
+    return true; // If either version is missing, allow display
+  }
+  
+  // Split version strings into parts (e.g., "1.2.3" -> [1, 2, 3])
+  const userParts = userVersion.split('.').map(part => parseInt(part) || 0);
+  const subcatParts = subcategoryVersion.split('.').map(part => parseInt(part) || 0);
+  
+  // Compare each part from left to right
+  for (let i = 0; i < Math.max(userParts.length, subcatParts.length); i++) {
+    const userPart = userParts[i] || 0;
+    const subcatPart = subcatParts[i] || 0;
+    
+    if (userPart > subcatPart) {
+      return true; // User version is greater
+    } else if (userPart < subcatPart) {
+      return false; // User version is lower
+    }
+    // If equal, continue to next part
+  }
+  
+  return true; // Versions are equal
+};
+
+// Helper function to filter subcategories by app version
+const filterSubcategoriesByVersion = (subcategories, userAppVersion, userProvider) => {
+  console.log('FILTER DEBUG - Input:', {
+    subcategoriesCount: subcategories.length,
+    userAppVersion,
+    userProvider
+  });
+
+  if (!userAppVersion || !userProvider) {
+    // If user has no app version or provider, only show subcategories without version requirements
+    const filtered = subcategories.filter(subcategory => {
+      const androidVersion = subcategory.android_appVersion;
+      const iosVersion = subcategory.ios_appVersion;
+      return !androidVersion && !iosVersion; // Only show if subcategory has no version requirements for any platform
+    });
+    console.log('FILTER DEBUG - No user version/provider, filtered count:', filtered.length);
+    return filtered;
+  }
+  
+  const filtered = subcategories.filter(subcategory => {
+    let subcategoryVersion = null;
+    
+    // Get the appropriate version based on user provider
+    if (userProvider === "android") {
+      subcategoryVersion = subcategory.android_appVersion;
+    } else if (userProvider === "ios") {
+      subcategoryVersion = subcategory.ios_appVersion;
+    }
+    
+    console.log('FILTER DEBUG - Subcategory:', {
+      id: subcategory._id,
+      title: subcategory.subcategoryTitle,
+      userProvider,
+      subcategoryVersion,
+      androidVersion: subcategory.android_appVersion,
+      iosVersion: subcategory.ios_appVersion
+    });
+    
+    // If subcategory has no version requirement for this platform, show it
+    if (!subcategoryVersion) {
+      console.log('FILTER DEBUG - No version requirement, showing subcategory');
+      return true;
+    }
+    
+    // Only show if user app version matches or is greater than subcategory version
+    const isCompatible = compareAppVersions(userAppVersion, subcategoryVersion);
+    console.log('FILTER DEBUG - Version comparison:', {
+      userAppVersion,
+      subcategoryVersion,
+      isCompatible
+    });
+    
+    return isCompatible;
+  });
+
+  console.log('FILTER DEBUG - Final filtered count:', filtered.length);
+  return filtered;
+};
+
 // ------------- Send FCM Notification -------------
-const sendFCMNotification = async ({ fcmToken, title, description, image, screenName, imageUrl, generatedImageTitle }) => {
+const sendFCMNotification = async ({
+  fcmToken,
+  title,
+  description,
+  image,
+  screenName,
+  imageUrl,
+  generatedImageTitle,
+}) => {
   try {
     // Validate inputs
     if (!fcmToken) {
@@ -213,4 +307,6 @@ export default {
   createId,
   sendFCMNotification,
   hashToken,
+  compareAppVersions,
+  filterSubcategoriesByVersion,
 };

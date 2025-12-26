@@ -51,7 +51,12 @@ const SubcategorySchema = new Schema(
     trendingOrder: { type: Number, default: 0 }, // Order in trending section (starts from 1)
     isSection8: { type: Boolean, default: false }, // Whether subcategory is in Section 8
     section8Order: { type: Number, default: 1 }, // Order in Section 8 (starts from 1)
+    // Additional metadata fields
+    country: { type: String, default: null }, // Subcategory's country (optional)
+    android_appVersion: { type: String, default: null }, // App version (optional)
     // you can add createdBy/updatedBy if needed
+    ios_appVersion: { type: String, default: null }, // App version (optional)
+
   },
   { timestamps: true }
 );

@@ -24,6 +24,9 @@ const baseSchema = {
   }),
   isTrending: Joi.boolean().optional(),
   trendingOrder: Joi.number().integer().min(0).optional(),
+  country: Joi.string().allow("", null).optional(),
+  android_appVersion: Joi.string().allow("", null).optional(),
+  ios_appVersion: Joi.string().allow("", null).optional(),
 };
 
 // Create
