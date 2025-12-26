@@ -40,7 +40,10 @@ const updateSubscriptionAppUserId = async (req, res, next) => {
     if (user.subscriptionType === undefined || user.subscriptionType === null) {
       user.subscriptionType = null;
     }
-    if (user.subscriptionStart === undefined || user.subscriptionStart === null) {
+    if (
+      user.subscriptionStart === undefined ||
+      user.subscriptionStart === null
+    ) {
       user.subscriptionStart = null;
     }
     if (user.subscriptionEnd === undefined || user.subscriptionEnd === null) {
@@ -78,12 +81,15 @@ const getSubscriptionCheck = async (req, res, next) => {
     // Auto-add missing subscription fields for existing users
     let needsUpdate = false;
     const updateData = {};
-    
+
     if (user.isSubscribe === undefined || user.isSubscribe === null) {
       updateData.isSubscribe = false;
       needsUpdate = true;
     }
-    if (user.subscriptionAppUserId === undefined || user.subscriptionAppUserId === null) {
+    if (
+      user.subscriptionAppUserId === undefined ||
+      user.subscriptionAppUserId === null
+    ) {
       updateData.subscriptionAppUserId = null;
       needsUpdate = true;
     }
@@ -91,7 +97,10 @@ const getSubscriptionCheck = async (req, res, next) => {
       updateData.subscriptionType = null;
       needsUpdate = true;
     }
-    if (user.subscriptionStart === undefined || user.subscriptionStart === null) {
+    if (
+      user.subscriptionStart === undefined ||
+      user.subscriptionStart === null
+    ) {
       updateData.subscriptionStart = null;
       needsUpdate = true;
     }
@@ -99,10 +108,14 @@ const getSubscriptionCheck = async (req, res, next) => {
       updateData.subscriptionEnd = null;
       needsUpdate = true;
     }
-    
+
     // Update user if fields are missing
     if (needsUpdate) {
-      await UserModel.findByIdAndUpdate(user._id, { $set: updateData }, { new: true });
+      await UserModel.findByIdAndUpdate(
+        user._id,
+        { $set: updateData },
+        { new: true }
+      );
       // Reload user to get updated fields
       const updatedUser = await UserModel.findOne({ _id: req.user._id });
       Object.assign(user, updatedUser.toObject());
@@ -129,11 +142,11 @@ const getSubscriptionCheck = async (req, res, next) => {
           Authorization: `Bearer ${REVENUECAT_API_KEY}`,
         },
       });
-    console.log("revenueCatResponse ++++++++++", revenueCatResponse.data)
+      console.log("revenueCatResponse ++++++++++", revenueCatResponse.data);
       const subscriptionData = revenueCatResponse.data.subscriber.subscriptions;
-      console.log("subscriptionData ++++++++++", subscriptionData)
+      console.log("subscriptionData ++++++++++", subscriptionData);
       const productId = Object.keys(subscriptionData)[0];
-      console.log("productId ++++++++++", productId)
+      console.log("productId ++++++++++", productId);
 
       if (!productId) {
         user.isSubscribe = false;
@@ -147,7 +160,7 @@ const getSubscriptionCheck = async (req, res, next) => {
       }
 
       const subscription = subscriptionData[productId];
-      console.log("subscription ++++++++++", subscription)
+      console.log("subscription ++++++++++", subscription);
       const expiresDate = moment(subscription.expires_date);
       const currentDate = moment();
 
@@ -197,15 +210,16 @@ const handleRevenueCatWebhook = async (req, res, next) => {
     console.log("=== RevenueCat Webhook Received ===");
 
     // Verify webhook signature (optional but recommended for security)
-    const signature = req.headers['authorization'];
-    const webhookSecret = config.revenuecat.webhookSecret || 'your-webhook-secret-here';
-    
+    const signature = req.headers["authorization"];
+    const webhookSecret =
+      config.revenuecat.webhookSecret || "your-webhook-secret-here";
+
     if (signature && webhookSecret) {
       const expectedSignature = crypto
-        .createHmac('sha256', webhookSecret)
+        .createHmac("sha256", webhookSecret)
         .update(JSON.stringify(req.body))
-        .digest('hex');
-      
+        .digest("hex");
+
       if (signature !== `Bearer ${expectedSignature}`) {
         console.log("⚠️ Webhook signature verification failed");
         return apiResponse({
@@ -216,18 +230,22 @@ const handleRevenueCatWebhook = async (req, res, next) => {
       }
     }
 
-    console.log("req.body ++++++++++", req.body)
+    console.log("req.body ++++++++++", req.body);
     const { event } = req.body;
 
     // Send event to Firebase Analytics
     try {
       if (event && event.original_app_user_id) {
         console.log("🚀 Sending event to Firebase Analytics...");
-        const analyticsSuccess = await FirebaseAnalyticsService.sendRevenueCatEvent(
-          event, 
-          event?.original_app_user_id
+        const analyticsSuccess =
+          await FirebaseAnalyticsService.sendRevenueCatEvent(
+            event,
+            event?.original_app_user_id
+          );
+        console.log(
+          "🔥 Firebase Analytics Response:::::::::::",
+          analyticsSuccess
         );
-        console.log("🔥 Firebase Analytics Response:::::::::::", analyticsSuccess);
 
         if (analyticsSuccess) {
           console.log("✅ Firebase Analytics event sent successfully");
@@ -239,10 +257,8 @@ const handleRevenueCatWebhook = async (req, res, next) => {
       }
     } catch (analyticsError) {
       console.error("❌ Firebase Analytics Error:", analyticsError.message);
-      
     }
 
-   
     return apiResponse({
       res,
       statusCode: StatusCodes.OK,
@@ -250,10 +266,9 @@ const handleRevenueCatWebhook = async (req, res, next) => {
       data: {
         event: event?.type,
         // app_user_id,
-        processed: true
-      }
+        processed: true,
+      },
     });
-
   } catch (error) {
     console.error("❌ RevenueCat Webhook Error:", error);
     return apiResponse({
@@ -269,4 +284,3 @@ export default {
   getSubscriptionCheck,
   handleRevenueCatWebhook,
 };
-

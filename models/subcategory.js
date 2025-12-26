@@ -49,6 +49,8 @@ const SubcategorySchema = new Schema(
     // Trending fields
     isTrending: { type: Boolean, default: false }, // Whether subcategory is trending
     trendingOrder: { type: Number, default: 0 }, // Order in trending section (starts from 1)
+    isSection8: { type: Boolean, default: false }, // Whether subcategory is in Section 8
+    section8Order: { type: Number, default: 1 }, // Order in Section 8 (starts from 1)
     // you can add createdBy/updatedBy if needed
   },
   { timestamps: true }
@@ -77,8 +79,12 @@ SubcategorySchema.index({ section5Order: -1 });
 SubcategorySchema.index({ isTrending: 1, trendingOrder: 1 });
 SubcategorySchema.index({ status: 1, isTrending: 1, trendingOrder: 1 });
 SubcategorySchema.index({ trendingOrder: -1 });
+SubcategorySchema.index({ isSection8: 1, section8Order: 1 });
+SubcategorySchema.index({ status: 1, isSection8: 1, section8Order: 1 });
+SubcategorySchema.index({ section8Order: -1 });
 
 // Check if model already exists to prevent overwrite error during hot reload
-const Subcategory = mongoose.models.Subcategory || model("Subcategory", SubcategorySchema);
+const Subcategory =
+  mongoose.models.Subcategory || model("Subcategory", SubcategorySchema);
 
 export default Subcategory;
