@@ -205,6 +205,10 @@ export const createSubcategory = async (req, res) => {
         finalPayload.isSection5 !== undefined
           ? Boolean(finalPayload.isSection5)
           : false,
+      isTrending:
+        finalPayload.isTrending !== undefined
+          ? Boolean(finalPayload.isTrending)
+          : false,
     };
 
     // Handle asset_images - merge uploaded files and body assets
@@ -277,6 +281,22 @@ export const createSubcategory = async (req, res) => {
       subcategoryData.section5Order = await calculateNextOrder("section5Order");
     } else {
       subcategoryData.section5Order = Number(finalPayload.section5Order);
+    }
+
+    // Handle trendingOrder - calculate if not provided or if 0
+    if (
+      finalPayload.trendingOrder === undefined ||
+      finalPayload.trendingOrder === null ||
+      finalPayload.trendingOrder < 1
+    ) {
+      // Only calculate if isTrending is true, otherwise set to 0
+      if (subcategoryData.isTrending) {
+        subcategoryData.trendingOrder = await calculateNextOrder("trendingOrder");
+      } else {
+        subcategoryData.trendingOrder = 0;
+      }
+    } else {
+      subcategoryData.trendingOrder = Number(finalPayload.trendingOrder);
     }
 
     const subcategory = new Subcategory(subcategoryData);
@@ -601,6 +621,12 @@ export const updateSubcategory = async (req, res) => {
     }
     if (finalPayload.isPremium !== undefined) {
       finalPayload.isPremium = Boolean(finalPayload.isPremium);
+    }
+    if (finalPayload.isTrending !== undefined) {
+      finalPayload.isTrending = Boolean(finalPayload.isTrending);
+    }
+    if (finalPayload.trendingOrder !== undefined) {
+      finalPayload.trendingOrder = Number(finalPayload.trendingOrder);
     }
 
     // Build update object

@@ -22,6 +22,8 @@ const baseSchema = {
     "number.integer": "imageCount must be an integer",
     "number.min": "imageCount must be at least 1",
   }),
+  isTrending: Joi.boolean().optional(),
+  trendingOrder: Joi.number().integer().min(0).optional(),
 };
 
 // Create

@@ -908,7 +908,7 @@ const loginByApple = async (req, res) => {
 // For guest login
 const guestLogin = async (req, res) => {
   try {
-    const { deviceId, fcmToken, country } = req.body;
+    const { deviceId, fcmToken } = req.body;
 
     if (!deviceId) {
       return apiResponse({
@@ -965,19 +965,12 @@ const guestLogin = async (req, res) => {
         newUserData.fcmToken = fcmToken;
       }
 
-      if (country) {
-        newUserData.country = country;
-      }
-
       user = await User.create(newUserData);
     } else {
       // Update fcmToken and country if provided for existing user
       let updateData = {};
       if (fcmToken) {
         updateData.fcmToken = fcmToken;
-      }
-      if (country) {
-        updateData.country = country;
       }
       if (Object.keys(updateData).length > 0) {
         await userService.update(user._id, updateData);

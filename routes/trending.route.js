@@ -28,7 +28,7 @@ route.get(
 route.get("/list", verifyToken, trendingController.getTrendingCategories);
 
 /**
- * PATCH /api/v1/categories/trending/reorder
+ * PATCH /api/v1/trending/reorder
  * Bulk reorder trending categories (Admin only)
  * Must come before /:id routes
  */
@@ -41,7 +41,20 @@ route.patch(
 );
 
 /**
- * PATCH /api/v1/categories/:id/trending
+ * PATCH /api/v1/trending/reorder-subcategories
+ * Bulk reorder trending subcategories (Admin only)
+ * Must come before /:id routes
+ */
+route.patch(
+  "/reorder-subcategories",
+  verifyToken,
+  verifyRole([enums.userRoleEnum.ADMIN]),
+  validate(trendingValidation.reorderTrendingSubcategoriesValidation),
+  trendingController.reorderTrendingSubcategories
+);
+
+/**
+ * PATCH /api/v1/trending/toggle-trending/:id
  * Toggle category trending status (Admin only)
  */
 route.patch(
@@ -50,6 +63,18 @@ route.patch(
   verifyRole([enums.userRoleEnum.ADMIN]),
   validate(trendingValidation.toggleTrendingValidation),
   trendingController.toggleCategoryTrending
+);
+
+/**
+ * PATCH /api/v1/trending/toggle-trending-subcategory/:id
+ * Toggle subcategory trending status (Admin only)
+ */
+route.patch(
+  "/toggle-trending-subcategory/:id",
+  verifyToken,
+  verifyRole([enums.userRoleEnum.ADMIN]),
+  validate(trendingValidation.toggleTrendingValidation),
+  trendingController.toggleSubcategoryTrending
 );
 
 export default route;
