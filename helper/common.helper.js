@@ -138,7 +138,7 @@ const hashToken = (token) => {
 
 // Helper function to compare app versions
 // Returns true if userVersion >= subcategoryVersion
-const compareAppVersions = (userVersion, subcategoryVersion) => {
+const compareAppVersionsSubCategory = (userVersion, subcategoryVersion) => {
   if (!userVersion || !subcategoryVersion) {
     return true; // If either version is missing, allow display
   }
@@ -208,7 +208,7 @@ const filterSubcategoriesByVersion = (subcategories, userAppVersion, userProvide
     }
     
     // Only show if user app version matches or is greater than subcategory version
-    const isCompatible = compareAppVersions(userAppVersion, subcategoryVersion);
+    const isCompatible = compareAppVersionsSubCategory(userAppVersion, subcategoryVersion);
     console.log('FILTER DEBUG - Version comparison:', {
       userAppVersion,
       subcategoryVersion,
