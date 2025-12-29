@@ -1620,7 +1620,7 @@ export const getSubcategoryAssets = async (req, res) => {
       }
       
       if (subcategoryVersion) {
-        const isCompatible = commonHelper.compareAppVersions(userAppVersion, subcategoryVersion);
+        const isCompatible = commonHelper.compareAppVersionsSubCategory(userAppVersion, subcategoryVersion);
         if (!isCompatible) {
           return apiResponse({
             res,

@@ -440,6 +440,7 @@ const getCategories = async (req, res) => {
 /**
  * Get all category titles only (public)
  * Returns _id and name for all active categories (status: true only)
+ * Filtered by user app version if logged in
  * @route GET /api/v1/categories/titles
  * @access Public
  */
@@ -448,16 +449,21 @@ const getCategoryTitles = async (req, res) => {
     // Only fetch active categories (status: true) that are not deleted
     const categories = await categoryService
       .find({ isDeleted: false, status: true })
-      .select({ _id: 1, name: 1 })
+      .select({ _id: 1, name: 1, android_appVersion: 1, ios_appVersion: 1 })
       .sort({ order: 1, createdAt: 1 })
       .lean();
+
+    // Filter by app version if user is logged in
+    const userAppVersion = req.user?.appVersion;
+    const userProvider = req.user?.provider;
+    const filteredCategories = helper.filterCategoriesByAppVersion(req.user, categories);
 
     return apiResponse({
       res,
       statusCode: StatusCodes.OK,
       status: true,
       message: "Category titles fetched successfully",
-      data: categories,
+      data: filteredCategories,
     });
   } catch (error) {
     console.error("Fetch Category Titles Error:", error);
