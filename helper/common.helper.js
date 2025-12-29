@@ -234,8 +234,6 @@ const compareAppVersions = (userVersion, categoryVersion) => {
     // Normalize versions: remove leading/trailing whitespace
     const userVer = String(userVersion).trim();
     const catVer = String(categoryVersion).trim();
-    console.log("userVer", userVer);
-    console.log("catVer", catVer);
 
     // Parse versions: split by dots and convert to numbers
     const userParts = userVer.split(".").map((part) => {
@@ -247,9 +245,6 @@ const compareAppVersions = (userVersion, categoryVersion) => {
       const num = parseInt(part, 10);
       return isNaN(num) ? 0 : num;
     });
-
-    console.log("userParts", userParts);
-    console.log("catParts", catParts);
 
     // Normalize to same length by padding with zeros
     const maxLength = Math.max(userParts.length, catParts.length);
@@ -429,4 +424,5 @@ export default {
   compareAppVersions,
   filterSubcategoriesByVersion,
   filterCategoriesByAppVersion,
+  compareAppVersionsSubCategory
 };
