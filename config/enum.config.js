@@ -83,6 +83,8 @@ const cronNameEnum = {
   STREAK_USERS: "streakUsers",
   ALMOST_SUBSCRIBERS: "almostSubscribers",
   PAYWALL_DISMISSED_USERS: "paywallDismissedUsers",
+  BRAND_NEW_USERS: "brandNewUsers",
+  COUNTRY_NOTIFICATION: "countryNotification",
 };
 
 export { cronNameEnum };

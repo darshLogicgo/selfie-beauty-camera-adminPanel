@@ -4,6 +4,7 @@ import { cronNameEnum } from "../config/enum.config.js";
 import { logger } from "../config/logger.config.js";
 import MediaClickModel from "../models/media_click.model.js";
 import helper from "../helper/common.helper.js";
+import { getCountriesInNotificationWindow } from "../helper/cronCountry.helper.js";
 
 /**
  * Cron job to send notifications to streak users who:
@@ -98,18 +99,70 @@ export const runStreakUsersCron = async () => {
 
         const user = mediaClick.userId;
 
-        // Notification messages focused on maintaining streak
-        const notificationTitle = "Don't Break Your Streak! 🔥";
-        const notificationDescription = `You've edited for ${streakDays} days straight! Keep your streak alive - create something amazing today!`;
+        // Check if user has already been notified in this execution
+        const { isUserAlreadyNotified, markUserAsNotified } = await import("./countryNotification.cron.js");
+        if (isUserAlreadyNotified(user._id)) {
+          skippedCount++;
+          logger.debug(`Skipping user ${user._id}: already notified in this execution`);
+          continue;
+        }
+
+        // Random notification messages for streak users (3-day streak)
+        // Goal: Reward + monetization
+        const notificationMessages = [
+          {
+            title: "🏆 3-Day Streak! Amazing",
+            description: "Take quality even higher",
+            image: "https://guardianshot.blr1.cdn.digitaloceanspaces.com/selfie%20notification%20banner/AI%20Enhancer.png"
+          },
+          {
+            title: "🎭 Your Streak Deserves Fun",
+            description: "Try premium face swaps",
+            image: "https://guardianshot.blr1.cdn.digitaloceanspaces.com/selfie%20notification%20banner/Face%20Swap.png"
+          },
+          {
+            title: "💎 New Hair, New Energy",
+            description: "Reward yourself with styles",
+            image: "https://guardianshot.blr1.cdn.digitaloceanspaces.com/selfie%20notification%20banner/Kiddo%20Snap-1.png"
+          },
+          {
+            title: "💄 Streak Glam Upgrade",
+            description: "Pro looks unlocked",
+            image: "https://guardianshot.blr1.cdn.digitaloceanspaces.com/selfie%20notification%20banner/Makeup.png"
+          },
+          {
+            title: "📸 Save in Ultra HD",
+            description: "Perfect quality awaits",
+            image: null
+          },
+          {
+            title: "🎁 Streak Reward Inside",
+            description: "Premium tools at 50% off",
+            image: null
+          },
+          {
+            title: "⏰ Limited Streak Offer",
+            description: "Don't miss your reward",
+            image: null
+          }
+        ];
+
+        // Select a random notification message
+        const randomMessage = notificationMessages[
+          Math.floor(Math.random() * notificationMessages.length)
+        ];
 
         // Send notification
         const notificationResult = await helper.sendFCMNotification({
           fcmToken: user.fcmToken,
-          title: notificationTitle,
-          description: notificationDescription,
+          title: randomMessage.title,
+          description: randomMessage.description,
+          image: randomMessage.image,
         });
 
         if (notificationResult.success) {
+          // Mark user as notified
+          markUserAsNotified(user._id);
           successCount++;
           logger.info(
             `Notification sent successfully to streak user ${user._id} (${streakDays} day streak broken - yesterday missed)`

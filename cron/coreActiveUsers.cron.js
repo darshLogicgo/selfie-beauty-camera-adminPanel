@@ -4,6 +4,7 @@ import { cronNameEnum } from "../config/enum.config.js";
 import { logger } from "../config/logger.config.js";
 import MediaClickModel from "../models/media_click.model.js";
 import helper from "../helper/common.helper.js";
+import { getCountriesInNotificationWindow } from "../helper/cronCountry.helper.js";
 
 /**
  * Cron job to send notifications to core active users who:
@@ -16,6 +17,21 @@ export const runCoreActiveUsersCron = async () => {
   logger.info("CRON START >> Core Active Users - Finding users to notify");
 
   try {
+    // Get countries currently in notification window
+    const activeCountries = getCountriesInNotificationWindow();
+
+    if (activeCountries.length === 0) {
+      logger.info("Core Active Users: No countries in notification window, skipping");
+      return {
+        success: true,
+        message: "No countries in notification window",
+        totalProcessed: 0,
+        successCount: 0,
+        failureCount: 0,
+        skippedCount: 0,
+      };
+    }
+
     // Calculate last 7 days range
     const today = moment().startOf("day");
     const sevenDaysAgo = moment().subtract(7, "days").startOf("day");
@@ -25,7 +41,7 @@ export const runCoreActiveUsersCron = async () => {
     const mediaClicks = await MediaClickModel.find({
       "ai_edit_daily_count.0": { $exists: true }, // Has at least one entry in array
     })
-      .populate("userId", "fcmToken isDeleted")
+      .populate("userId", "fcmToken isDeleted country")
       .lean();
 
     logger.info(`Found ${mediaClicks.length} users with AI edit daily count data`);
@@ -47,6 +63,13 @@ export const runCoreActiveUsersCron = async () => {
           logger.warn(
             `Skipping user ${mediaClick.userId?._id || "unknown"}: missing FCM token or deleted`
           );
+          continue;
+        }
+
+        // Check if user's country is in active notification window
+        const userCountry = mediaClick.userId.country;
+        if (!userCountry || !activeCountries.includes(userCountry)) {
+          skippedCount++;
           continue;
         }
 
@@ -84,6 +107,14 @@ export const runCoreActiveUsersCron = async () => {
 
         const user = mediaClick.userId;
 
+        // Check if user has already been notified in this execution
+        const { isUserAlreadyNotified, markUserAsNotified } = await import("./countryNotification.cron.js");
+        if (isUserAlreadyNotified(user._id)) {
+          skippedCount++;
+          logger.debug(`Skipping user ${user._id}: already notified in this execution`);
+          continue;
+        }
+
         // Find the most recent edit date in last 7 days
         const lastEditDate = editsInLast7Days.length > 0
           ? editsInLast7Days.sort((a, b) => b.date.diff(a.date))[0].date
@@ -93,29 +124,72 @@ export const runCoreActiveUsersCron = async () => {
           ? moment().diff(lastEditDate, "days")
           : 0;
 
-        // Determine notification message based on days since last edit
-        let notificationTitle = "Keep Your Streak Going! 🔥";
-        let notificationDescription = "";
-
-        if (daysSinceLastEdit >= 7 && daysSinceLastEdit < 30) {
-          // After 7 days of inactivity
-          notificationDescription = `You're a core creator! You've made ${totalEditsInLast7Days} amazing edits. Don't break your streak - come back and create more!`;
-        } else if (daysSinceLastEdit >= 30) {
-          // After 30 days of inactivity
-          notificationDescription = `We miss you! You were creating ${totalEditsInLast7Days} amazing edits. Your creative journey awaits - come back and continue your streak!`;
-        } else {
-          // Active user encouragement
-          notificationDescription = `Amazing work! You've completed ${totalEditsInLast7Days} edits. Keep up the great streak! 🎨`;
+        // IMPORTANT: Skip users who haven't edited in more than 48 hours (2 days)
+        // They should be handled by recentlyActiveUsers cron (48h-7 days)
+        if (daysSinceLastEdit >= 2) {
+          skippedCount++;
+          logger.debug(
+            `Skipping user ${user._id}: last edit ${daysSinceLastEdit} days ago (>48h, handled by recentlyActiveUsers cron)`
+          );
+          continue;
         }
+
+        // Random notification messages for power users (≥3 edits in 7 days, <48h inactive)
+        // Goal: Identity + mastery
+        const notificationMessages = [
+          {
+            title: "🔥 You're Editing Like a Pro",
+            description: "Try our most viral face swap",
+            image: "https://guardianshot.blr1.cdn.digitaloceanspaces.com/selfie%20notification%20banner/Face%20Swap.png"
+          },
+          {
+            title: "💇 New Hairstyles Live",
+            description: "Test bold looks instantly",
+            image: "https://guardianshot.blr1.cdn.digitaloceanspaces.com/selfie%20notification%20banner/Kiddo%20Snap-1.png"
+          },
+          {
+            title: "💄 Pro-Level Makeup Transfer",
+            description: "Try glam or soft looks",
+            image: "https://guardianshot.blr1.cdn.digitaloceanspaces.com/selfie%20notification%20banner/Makeup.png"
+          },
+          {
+            title: "✨ Push Quality Further",
+            description: "Enhance details like a pro",
+            image: "https://guardianshot.blr1.cdn.digitaloceanspaces.com/selfie%20notification%20banner/AI%20Enhancer.png"
+          },
+          {
+            title: "👙 Beach Look Preview",
+            description: "Try it safely on your photo",
+            image: "https://guardianshot.blr1.cdn.digitaloceanspaces.com/selfie%20notification%20banner/Bikini.png"
+          },
+          {
+            title: "✨ Perfect Shot Mode",
+            description: "Clean photos in one tap",
+            image: "https://guardianshot.blr1.cdn.digitaloceanspaces.com/selfie%20notification%20banner/Object%20Remover.png"
+          },
+          {
+            title: "🎨 Advanced Creator Filters",
+            description: "Made for power users",
+            image: null // No image for this one
+          }
+        ];
+
+        // Select a random notification message
+        const randomMessage = notificationMessages[
+          Math.floor(Math.random() * notificationMessages.length)
+        ];
 
         // Send notification
         const notificationResult = await helper.sendFCMNotification({
           fcmToken: user.fcmToken,
-          title: notificationTitle,
-          description: notificationDescription,
+          title: randomMessage.title,
+          description: randomMessage.description,
+          image: randomMessage.image,
         });
 
         if (notificationResult.success) {
+          // Mark user as notified
+          markUserAsNotified(user._id);
           successCount++;
           logger.info(
             `Notification sent successfully to core active user ${user._id} (${totalEditsInLast7Days} edits in last 7 days, last edit: ${daysSinceLastEdit} days ago)`

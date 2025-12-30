@@ -16,6 +16,7 @@ import { runStyleOpenedUsersCron } from "../cron/styleOpenedUsers.cron.js";
 import { runStreakUsersCron } from "../cron/streakUsers.cron.js";
 import { runAlmostSubscribersCron } from "../cron/almostSubscribers.cron.js";
 import { runPaywallDismissedUsersCron } from "../cron/paywallDismissedUsers.cron.js";
+import { runCountryNotificationCron } from "../cron/countryNotification.cron.js";
 
 /**
  * Get dashboard statistics
@@ -167,7 +168,7 @@ const getDashboardStats = async (req, res) => {
  */
 const testAiEditReminderCron = async (req, res) => {
   try {
-    const result = await runRecentlyActiveUsersCron();
+    const result = await runCountryNotificationCron();
     
     return apiResponse({
       res,

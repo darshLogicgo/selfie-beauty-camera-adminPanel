@@ -229,51 +229,51 @@ const filterSubcategoriesByVersion = (subcategories, userAppVersion, userProvide
  * @param {string} categoryVersion - Category's required app version (e.g., "1.2.30")
  * @returns {boolean} - True if userVersion >= categoryVersion
  */
-const compareAppVersions = (userVersion, categoryVersion) => {
-  try {
-    // Normalize versions: remove leading/trailing whitespace
-    const userVer = String(userVersion).trim();
-    const catVer = String(categoryVersion).trim();
-    console.log("userVer", userVer);
-    console.log("catVer", catVer);
+// const compareAppVersions = (userVersion, categoryVersion) => {
+//   try {
+//     // Normalize versions: remove leading/trailing whitespace
+//     const userVer = String(userVersion).trim();
+//     const catVer = String(categoryVersion).trim();
+//     console.log("userVer", userVer);
+//     console.log("catVer", catVer);
 
-    // Parse versions: split by dots and convert to numbers
-    const userParts = userVer.split(".").map((part) => {
-      const num = parseInt(part, 10);
-      return isNaN(num) ? 0 : num;
-    });
+//     // Parse versions: split by dots and convert to numbers
+//     const userParts = userVer.split(".").map((part) => {
+//       const num = parseInt(part, 10);
+//       return isNaN(num) ? 0 : num;
+//     });
 
-    const catParts = catVer.split(".").map((part) => {
-      const num = parseInt(part, 10);
-      return isNaN(num) ? 0 : num;
-    });
+//     const catParts = catVer.split(".").map((part) => {
+//       const num = parseInt(part, 10);
+//       return isNaN(num) ? 0 : num;
+//     });
 
-    console.log("userParts", userParts);
-    console.log("catParts", catParts);
+//     console.log("userParts", userParts);
+//     console.log("catParts", catParts);
 
-    // Normalize to same length by padding with zeros
-    const maxLength = Math.max(userParts.length, catParts.length);
-    while (userParts.length < maxLength) userParts.push(0);
-    while (catParts.length < maxLength) catParts.push(0);
+//     // Normalize to same length by padding with zeros
+//     const maxLength = Math.max(userParts.length, catParts.length);
+//     while (userParts.length < maxLength) userParts.push(0);
+//     while (catParts.length < maxLength) catParts.push(0);
 
-    // Compare each part
-    for (let i = 0; i < maxLength; i++) {
-      if (userParts[i] > catParts[i]) {
-        return true; // User version is greater
-      }
-      if (userParts[i] < catParts[i]) {
-        return false; // User version is less
-      }
-    }
+//     // Compare each part
+//     for (let i = 0; i < maxLength; i++) {
+//       if (userParts[i] > catParts[i]) {
+//         return true; // User version is greater
+//       }
+//       if (userParts[i] < catParts[i]) {
+//         return false; // User version is less
+//       }
+//     }
 
-    // Versions are equal
-    return true;
-  } catch (error) {
-    console.error("Error comparing app versions:", error);
-    // On error, don't show (fail closed)
-    return false;
-  }
-};
+//     // Versions are equal
+//     return true;
+//   } catch (error) {
+//     console.error("Error comparing app versions:", error);
+//     // On error, don't show (fail closed)
+//     return false;
+//   }
+// };
 
 /**
  * Filter categories based on user's appVersion and platform (provider)
@@ -395,6 +395,7 @@ const sendFCMNotification = async ({
 
     // Send the notification
     const response = await firebaseAdmin.messaging().send(message);
+    console.log("response", response);
 
     return {
       success: true,

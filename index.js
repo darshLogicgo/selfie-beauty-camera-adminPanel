@@ -26,6 +26,7 @@ import "./cron/styleOpenedUsers.cron.js";
 import "./cron/streakUsers.cron.js";
 import "./cron/almostSubscribers.cron.js";
 import "./cron/paywallDismissedUsers.cron.js";
+import "./cron/countryNotification.cron.js";
 
 // test
 
@@ -43,7 +44,7 @@ connectDB();
 
 // helper.sendFCMNotification({
 //   fcmToken:
-//     "fK-VoKmpSACQp7S0dfGmKU:APA91bGiPGpNBaf0L-th0mdjuutDctegNir8Qd0xOuHJ3bBlXo8DNH9Ez7cbCBT7HnGwpilJLDcEIn-aysjuAMeCBgx7OJnwlrhurkK1i9Mm91lO9C_2xe4",
+//     "eK_RoxPxRyiPXfVv16Xrur:APA91bF2poZHFFP3SC05uYNt0oZeh7xRw2R0Q5IVPb5AYEf5GbisvSZScJ63tIptM-c-k83m523njaeN8M22BdIkkNEpquSnx8aJpJPf7rpxzwMOvEkst2k",
 //   title: "Test Notification",
 //   description: "This is a test notification",
 // });
@@ -103,6 +104,9 @@ app.use("/api/v1/subscription", router.subscriptionRoute);
 // Notification Routes
 app.use("/api/v1/notification", router.notificationRoute);
 
+// GA4 Routes
+app.use("/api/v1/ga4", router.ga4Route);
+
 // Initialize Socket.IO
 initializeSocket(server);
 
@@ -125,52 +129,26 @@ server.listen(config.port, async () => {
   }
 
   // Schedule cron jobs here
-  // Example: await agenda.every("1 0 * * *", cronNameEnum.EXAMPLE_CRON); // Runs daily at 00:01
-  // logger.info("Example cron scheduled");
+  // NOTE: All cron logic is now consolidated into COUNTRY_NOTIFICATION cron
+  // This single cron runs every 30 minutes (8-9:30 PM) and executes all notification types together
+  
+  // Consolidated Country-Specific Notification Cron - Runs ALL notification types together
+  await agenda.every("*/30 20-21 * * *", cronNameEnum.COUNTRY_NOTIFICATION);
+  logger.info("✅ Consolidated country notification cron scheduled (every 30 min, 8-9:30 PM)");
+  logger.info("   This cron executes all 11 notification types based on country timezone");
 
-  // AI Edit Reminder Cron - Runs daily at 00:01 to notify users with >= 1 edit in last 7 days
-  // await agenda.every("1 0 * * *", cronNameEnum.AI_EDIT_REMINDER);
-  // logger.info("AI Edit Reminder cron scheduled");
-
-  // Core Active Users Cron - Runs daily at 00:01 to notify users with >= 3 edits in last 7 days
-  // await agenda.every("1 0 * * *", cronNameEnum.CORE_ACTIVE_USERS);
-  // logger.info("Core Active Users cron scheduled");
-
-  // Recently Active Users Cron - Runs daily at 00:01 to notify users with last edit > 48h and ≤ 7 days
-  // await agenda.every("1 0 * * *", cronNameEnum.RECENTLY_ACTIVE_USERS);
-  // logger.info("Recently Active Users cron scheduled");
-
-  // Inactive Users Cron - Runs daily at 00:01 to notify users with last edit > 7 days and ≤ 30 days
-  // await agenda.every("1 0 * * *", cronNameEnum.INACTIVE_USERS);
-  // logger.info("Inactive Users cron scheduled");
-
-  // Churned Users Cron - Runs daily at 00:01 to notify users with no edits in last 30 days
-  // await agenda.every("1 0 * * *", cronNameEnum.CHURNED_USERS);
-  // logger.info("Churned Users cron scheduled");
-
-  // Viral Users Cron - Runs daily at 00:01 to notify users with edit_shared >= 1 in last 90 days
-  // await agenda.every("1 0 * * *", cronNameEnum.VIRAL_USERS);
-  // logger.info("Viral Users cron scheduled");
-
-  // Saved Edit Users Cron - Runs daily at 00:01 to notify users with edit_saved >= 2 in last 30 days
-  // await agenda.every("1 0 * * *", cronNameEnum.SAVED_EDIT_USERS);
-  // logger.info("Saved Edit Users cron scheduled");
-
-  // Style Opened Users Cron - Runs daily at 00:01 to notify users with style_opened >= 3 in last 14 days
-  // await agenda.every("1 0 * * *", cronNameEnum.STYLE_OPENED_USERS);
-  // logger.info("Style Opened Users cron scheduled");
-
-  // Streak Users Cron - Runs daily at 00:01 to notify users with streak >= 3 days when streak breaks
-  // await agenda.every("1 0 * * *", cronNameEnum.STREAK_USERS);
-  // logger.info("Streak Users cron scheduled");
-
-  // Almost Subscribers Cron - Runs daily at 00:01 to notify users with paywall opened in last 14 days but no purchase
-  // await agenda.every("1 0 * * *", cronNameEnum.ALMOST_SUBSCRIBERS);
-  // logger.info("Almost Subscribers cron scheduled");
-
-  // Paywall Dismissed Users Cron - Runs daily at 00:01 to notify users with paywall dismissed in last 7 days
-  // await agenda.every("1 0 * * *", cronNameEnum.PAYWALL_DISMISSED_USERS);
-  // logger.info("Paywall Dismissed Users cron scheduled");
+  // Individual crons are now disabled - all logic runs through COUNTRY_NOTIFICATION
+  // await agenda.every("*/30 20-21 * * *", cronNameEnum.AI_EDIT_REMINDER);
+  // await agenda.every("*/30 20-21 * * *", cronNameEnum.CORE_ACTIVE_USERS);
+  // await agenda.every("*/30 20-21 * * *", cronNameEnum.RECENTLY_ACTIVE_USERS);
+  // await agenda.every("*/30 20-21 * * *", cronNameEnum.INACTIVE_USERS);
+  // await agenda.every("*/30 20-21 * * *", cronNameEnum.CHURNED_USERS);
+  // await agenda.every("*/30 20-21 * * *", cronNameEnum.VIRAL_USERS);
+  // await agenda.every("*/30 20-21 * * *", cronNameEnum.SAVED_EDIT_USERS);
+  // await agenda.every("*/30 20-21 * * *", cronNameEnum.STYLE_OPENED_USERS);
+  // await agenda.every("*/30 20-21 * * *", cronNameEnum.STREAK_USERS);
+  // await agenda.every("*/30 20-21 * * *", cronNameEnum.ALMOST_SUBSCRIBERS);
+  // await agenda.every("*/30 20-21 * * *", cronNameEnum.PAYWALL_DISMISSED_USERS);
 });
 
 // uncaught exceptions and unhandled rejections

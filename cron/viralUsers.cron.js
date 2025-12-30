@@ -4,6 +4,7 @@ import { cronNameEnum } from "../config/enum.config.js";
 import { logger } from "../config/logger.config.js";
 import MediaClickModel from "../models/media_click.model.js";
 import helper from "../helper/common.helper.js";
+import { getCountriesInNotificationWindow } from "../helper/cronCountry.helper.js";
 
 /**
  * Cron job to send notifications to viral users who:
@@ -76,28 +77,70 @@ export const runViralUsersCron = async () => {
 
         const user = mediaClick.userId;
 
-        // Notification messages based on count, not time period
-        let notificationTitle = "";
-        let notificationDescription = "";
-
-        if (sharedEditsInLast90Days >= 3) {
-          // Premium notification for users with >= 3 shares
-          notificationTitle = "VIP Creator Access! ⭐";
-          notificationDescription = "You're a top creator! Get exclusive early access to premium creator features and trending effects.";
-        } else {
-          // Regular notification for users with >= 1 share
-          notificationTitle = "Creator Features Await! 🎨";
-          notificationDescription = "Your shares inspire others! Unlock exclusive creator tools and be among the first to try new features.";
+        // Check if user has already been notified in this execution
+        const { isUserAlreadyNotified, markUserAsNotified } = await import("./countryNotification.cron.js");
+        if (isUserAlreadyNotified(user._id)) {
+          skippedCount++;
+          logger.debug(`Skipping user ${user._id}: already notified in this execution`);
+          continue;
         }
+
+        // Random notification messages for viral users/sharers
+        // Goal: Exclusivity + creator ego
+        const notificationMessages = [
+          {
+            title: "😎 Early Access Unlocked",
+            description: "Be first to post",
+            image: "https://guardianshot.blr1.cdn.digitaloceanspaces.com/selfie%20notification%20banner/Face%20Swap.png"
+          },
+          {
+            title: "🚀 Creator Quality Mode",
+            description: "Go viral faster",
+            image: "https://guardianshot.blr1.cdn.digitaloceanspaces.com/selfie%20notification%20banner/AI%20Enhancer.png"
+          },
+          {
+            title: "🎨 Trending Creator Filter",
+            description: "Made for shares",
+            image: null // No image for this one
+          },
+          {
+            title: "💇 Creator Hair Looks",
+            description: "Bold & viral",
+            image: "https://guardianshot.blr1.cdn.digitaloceanspaces.com/selfie%20notification%20banner/Kiddo%20Snap-1.png"
+          },
+          {
+            title: "💄 Glam That Gets Likes",
+            description: "Try it now",
+            image: "https://guardianshot.blr1.cdn.digitaloceanspaces.com/selfie%20notification%20banner/Makeup.png"
+          },
+          {
+            title: "📸 Aesthetic Polaroid",
+            description: "Perfect for socials",
+            image: "https://guardianshot.blr1.cdn.digitaloceanspaces.com/selfie%20notification%20banner/Polaroid.png"
+          },
+          {
+            title: "🔓 Creator VIP Access",
+            description: "Limited time",
+            image: null // No image for this one
+          }
+        ];
+
+        // Select a random notification message
+        const randomMessage = notificationMessages[
+          Math.floor(Math.random() * notificationMessages.length)
+        ];
 
         // Send notification
         const notificationResult = await helper.sendFCMNotification({
           fcmToken: user.fcmToken,
-          title: notificationTitle,
-          description: notificationDescription,
+          title: randomMessage.title,
+          description: randomMessage.description,
+          image: randomMessage.image,
         });
 
         if (notificationResult.success) {
+          // Mark user as notified
+          markUserAsNotified(user._id);
           successCount++;
           logger.info(
             `Notification sent successfully to viral user ${user._id} (${sharedEditsInLast90Days} shares in last 90 days)`

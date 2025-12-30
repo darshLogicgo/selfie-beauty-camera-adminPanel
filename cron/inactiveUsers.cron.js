@@ -4,6 +4,7 @@ import { cronNameEnum } from "../config/enum.config.js";
 import { logger } from "../config/logger.config.js";
 import MediaClickModel from "../models/media_click.model.js";
 import helper from "../helper/common.helper.js";
+import { getCountriesInNotificationWindow } from "../helper/cronCountry.helper.js";
 
 /**
  * Cron job to send notifications to inactive users who:
@@ -16,6 +17,14 @@ export const runInactiveUsersCron = async () => {
   logger.info("CRON START >> Inactive Users - Finding users to notify");
 
   try {
+    // Get countries currently in notification window
+    const activeCountries = getCountriesInNotificationWindow();
+
+    if (activeCountries.length === 0) {
+      logger.info("Inactive Users: No countries in notification window, skipping");
+      return { success: true, message: "No countries in notification window", totalProcessed: 0, successCount: 0, failureCount: 0, skippedCount: 0 };
+    }
+
     // Calculate date range: > 7 days ago AND ≤ 30 days ago
     const now = moment();
     const sevenDaysAgo = moment().subtract(7, "days").startOf("day");
@@ -28,7 +37,7 @@ export const runInactiveUsersCron = async () => {
     const mediaClicks = await MediaClickModel.find({
       "ai_edit_daily_count.0": { $exists: true }, // Has at least one entry in array
     })
-      .populate("userId", "fcmToken isDeleted")
+      .populate("userId", "fcmToken isDeleted country")
       .lean();
 
     logger.info(`Found ${mediaClicks.length} users with AI edit daily count data`);
@@ -46,6 +55,13 @@ export const runInactiveUsersCron = async () => {
           mediaClick.userId.isDeleted ||
           !mediaClick.userId.fcmToken
         ) {
+          skippedCount++;
+          continue;
+        }
+
+        // Check if user's country is in active notification window
+        const userCountry = mediaClick.userId.country;
+        if (!userCountry || !activeCountries.includes(userCountry)) {
           skippedCount++;
           continue;
         }
@@ -83,6 +99,8 @@ export const runInactiveUsersCron = async () => {
         const daysSinceLastEdit = now.diff(lastEditDate, "days");
 
         // Check if last edit is > 7 days ago AND ≤ 30 days ago AND count >= 1
+        // Users outside this window are skipped here and handled by other crons
+        // (e.g. Recently Active, Churned Users)
         if (
           daysSinceLastEdit <= 7 || // Skip if edited within last 7 days
           daysSinceLastEdit > 30 || // Skip if more than 30 days ago
@@ -94,27 +112,76 @@ export const runInactiveUsersCron = async () => {
 
         const user = mediaClick.userId;
 
-        // Notification messages focused on novelty and new AI features
-        let notificationTitle = "New Features Await You! ✨";
-        let notificationDescription = "";
-
-        if (daysSinceLastEdit >= 8 && daysSinceLastEdit < 15) {
-          notificationDescription = "We've added exciting new AI features! Come back and discover what's new.";
-        } else if (daysSinceLastEdit >= 15 && daysSinceLastEdit < 25) {
-          notificationDescription = "Missed you! Check out our latest AI-powered editing tools and create something amazing.";
-        } else {
-          // 25-30 days
-          notificationDescription = "We've been working on something special! Explore our new AI features and reignite your creativity.";
+        // Check if user has already been notified in this execution
+        const { isUserAlreadyNotified, markUserAsNotified } = await import("./countryNotification.cron.js");
+        if (isUserAlreadyNotified(user._id)) {
+          skippedCount++;
+          logger.debug(`Skipping user ${user._id}: already notified in this execution`);
+          continue;
         }
+
+        // 6️⃣ Dormant Users (7–30 Days)
+        // Goal: Novelty + shock
+        const notificationMessages = [
+          {
+            feature: "3D Model",
+            title: "😲 You, But in 3D!",
+            description: "Trending #1 AI model",
+            image: "https://guardianshot.blr1.cdn.digitaloceanspaces.com/selfie%20notification%20banner/3D%20Model.png",
+          },
+          {
+            feature: "Face Swap",
+            title: "😱 This Looks Too Real",
+            description: "Internet-breaking swap",
+            image: "https://guardianshot.blr1.cdn.digitaloceanspaces.com/selfie%20notification%20banner/Face%20Swap.png",
+          },
+          {
+            feature: "Object Removal",
+            title: "✨ Background Gone",
+            description: "Clean photos instantly",
+            image: "https://guardianshot.blr1.cdn.digitaloceanspaces.com/selfie%20notification%20banner/Object%20Remover.png",
+          },
+          {
+            feature: "AI Enhancer",
+            title: "🔥 Big AI Upgrade Live",
+            description: "Same photo, insane results",
+            image: "https://guardianshot.blr1.cdn.digitaloceanspaces.com/selfie%20notification%20banner/AI%20Enhancer.png",
+          },
+          {
+            feature: "Colorize",
+            title: "😭 Grandpa in Color",
+            description: "Emotional AI magic",
+            image: "https://guardianshot.blr1.cdn.digitaloceanspaces.com/selfie%20notification%20banner/Colorize.png",
+          },
+          {
+            feature: "Descratch",
+            title: "😎 Say Goodbye to Scratches",
+            description: "Restore old photos",
+            image: "https://guardianshot.blr1.cdn.digitaloceanspaces.com/selfie%20notification%20banner/Descratch.png",
+          },
+          {
+            feature: "Filters",
+            title: "🌟 New Creative Styles",
+            description: "Come see what’s new",
+            image: null,
+          },
+        ];
+
+        // Pick a random creative for dormant users
+        const randomMessage =
+          notificationMessages[Math.floor(Math.random() * notificationMessages.length)];
 
         // Send notification
         const notificationResult = await helper.sendFCMNotification({
           fcmToken: user.fcmToken,
-          title: notificationTitle,
-          description: notificationDescription,
+          title: randomMessage.title,
+          description: randomMessage.description,
+          image: randomMessage.image,
         });
 
         if (notificationResult.success) {
+          // Mark user as notified
+          markUserAsNotified(user._id);
           successCount++;
           logger.info(
             `Notification sent successfully to inactive user ${user._id} (last edit: ${daysSinceLastEdit} days ago)`

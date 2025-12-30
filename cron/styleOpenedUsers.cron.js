@@ -4,6 +4,7 @@ import { cronNameEnum } from "../config/enum.config.js";
 import { logger } from "../config/logger.config.js";
 import MediaClickModel from "../models/media_click.model.js";
 import helper from "../helper/common.helper.js";
+import { getCountriesInNotificationWindow } from "../helper/cronCountry.helper.js";
 
 /**
  * Cron job to send notifications to users who:
@@ -75,18 +76,70 @@ export const runStyleOpenedUsersCron = async () => {
 
         const user = mediaClick.userId;
 
-        // Notification messages focused on daily style drops
-        const notificationTitle = "New Styles Dropped! 🎨";
-        const notificationDescription = `You love exploring styles! Check out today's new style drops and discover fresh filters.`;
+        // Check if user has already been notified in this execution
+        const { isUserAlreadyNotified, markUserAsNotified } = await import("./countryNotification.cron.js");
+        if (isUserAlreadyNotified(user._id)) {
+          skippedCount++;
+          logger.debug(`Skipping user ${user._id}: already notified in this execution`);
+          continue;
+        }
+
+        // Random notification messages for style browsers
+        // Goal: Daily novelty
+        const notificationMessages = [
+          {
+            title: "🎨 New Styles Just Dropped",
+            description: "Today's trends",
+            image: null // No image for this one
+          },
+          {
+            title: "💇 New Hair, Who Dis?",
+            description: "Try instantly",
+            image: "https://guardianshot.blr1.cdn.digitaloceanspaces.com/selfie%20notification%20banner/Kiddo%20Snap-1.png"
+          },
+          {
+            title: "💄 Glam Look of the Day",
+            description: "One tap",
+            image: "https://guardianshot.blr1.cdn.digitaloceanspaces.com/selfie%20notification%20banner/Makeup.png"
+          },
+          {
+            title: "📸 Vintage Aesthetic",
+            description: "Cozy vibes",
+            image: "https://guardianshot.blr1.cdn.digitaloceanspaces.com/selfie%20notification%20banner/Polaroid.png"
+          },
+          {
+            title: "😲 Trending Face Swap",
+            description: "Everyone's using it",
+            image: "https://guardianshot.blr1.cdn.digitaloceanspaces.com/selfie%20notification%20banner/Face%20Swap.png"
+          },
+          {
+            title: "✨ Glow-Up in 3 Sec",
+            description: "Try now",
+            image: "https://guardianshot.blr1.cdn.digitaloceanspaces.com/selfie%20notification%20banner/AI%20Enhancer.png"
+          },
+          {
+            title: "🔥 #1 Trending Style",
+            description: "Don't miss",
+            image: null // No image for this one
+          }
+        ];
+
+        // Select a random notification message
+        const randomMessage = notificationMessages[
+          Math.floor(Math.random() * notificationMessages.length)
+        ];
 
         // Send notification
         const notificationResult = await helper.sendFCMNotification({
           fcmToken: user.fcmToken,
-          title: notificationTitle,
-          description: notificationDescription,
+          title: randomMessage.title,
+          description: randomMessage.description,
+          image: randomMessage.image,
         });
 
         if (notificationResult.success) {
+          // Mark user as notified
+          markUserAsNotified(user._id);
           successCount++;
           logger.info(
             `Notification sent successfully to style opened user ${user._id} (${styleOpensInLast14Days} style opens in last 14 days)`
