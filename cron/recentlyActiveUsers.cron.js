@@ -4,6 +4,7 @@ import { cronNameEnum } from "../config/enum.config.js";
 import { logger } from "../config/logger.config.js";
 import MediaClickModel from "../models/media_click.model.js";
 import helper from "../helper/common.helper.js";
+import { getCountriesInNotificationWindow } from "../helper/cronCountry.helper.js";
 
 /**
  * Cron job to send notifications to recently active users who:
@@ -16,6 +17,21 @@ export const runRecentlyActiveUsersCron = async () => {
   logger.info("CRON START >> Recently Active Users - Finding users to notify");
 
   try {
+    // Get countries currently in notification window
+    const activeCountries = getCountriesInNotificationWindow();
+
+    if (activeCountries.length === 0) {
+      logger.info("Recently Active Users: No countries in notification window, skipping");
+      return {
+        success: true,
+        message: "No countries in notification window",
+        totalProcessed: 0,
+        successCount: 0,
+        failureCount: 0,
+        skippedCount: 0,
+      };
+    }
+
     // Calculate date range: > 48 hours ago AND ≤ 7 days ago
     const now = moment();
     console.log("now", now);
@@ -27,7 +43,7 @@ export const runRecentlyActiveUsersCron = async () => {
     const mediaClicks = await MediaClickModel.find({
       "ai_edit_daily_count.0": { $exists: true }, // Has at least one entry in array
     })
-      .populate("userId", "fcmToken isDeleted")
+      .populate("userId", "fcmToken isDeleted country")
       .lean();
 
     logger.info(`Found ${mediaClicks.length} users with AI edit daily count data`);
@@ -49,6 +65,13 @@ export const runRecentlyActiveUsersCron = async () => {
         //   logger.warn(
         //     `Skipping user ${mediaClick.userId?._id || "unknown"}: missing FCM token or deleted`
         //   );
+          continue;
+        }
+
+        // Check if user's country is in active notification window
+        const userCountry = mediaClick.userId.country;
+        if (!userCountry || !activeCountries.includes(userCountry)) {
+          skippedCount++;
           continue;
         }
 
@@ -101,27 +124,70 @@ export const runRecentlyActiveUsersCron = async () => {
 
         const user = mediaClick.userId;
 
-        // Simple "re-enter" nudge messages
-        let notificationTitle = "We Miss You! 🎨";
-        let notificationDescription = "";
-
-        if (daysSinceLastEdit >= 2 && daysSinceLastEdit < 4) {
-          notificationDescription = "It's been a couple of days! Come back and create something new.";
-        } else if (daysSinceLastEdit >= 4 && daysSinceLastEdit < 6) {
-          notificationDescription = "Your creative journey is waiting! Open the app and continue editing.";
-        } else {
-          // 6-7 days
-          notificationDescription = "Don't let your creativity fade! Come back and explore new features.";
+        // Check if user has already been notified in this execution
+        const { isUserAlreadyNotified, markUserAsNotified } = await import("./countryNotification.cron.js");
+        if (isUserAlreadyNotified(user._id)) {
+          skippedCount++;
+          logger.debug(`Skipping user ${user._id}: already notified in this execution`);
+          continue;
         }
+
+        // Random notification messages for recently silent users (48h-7 days)
+        // Goal: Soft re-entry
+        const notificationMessages = [
+          {
+            title: "👀 We Miss Your Edits",
+            description: "Trending filters await",
+            image: null
+          },
+          {
+            title: "✨ Your Last Edit Was Fire",
+            description: "Ready for another glow-up?",
+            image: "https://guardianshot.blr1.cdn.digitaloceanspaces.com/selfie%20notification%20banner/AI%20Enhancer.png"
+          },
+          {
+            title: "😎 This Face Swap Is Fun",
+            description: "Try it today",
+            image: "https://guardianshot.blr1.cdn.digitaloceanspaces.com/selfie%20notification%20banner/Face%20Swap.png"
+          },
+          {
+            title: "😲 Clean Up Photos Fast",
+            description: "One tap fix",
+            image: "https://guardianshot.blr1.cdn.digitaloceanspaces.com/selfie%20notification%20banner/Object%20Remover.png"
+          },
+          {
+            title: "💇 New Hair Look Waiting",
+            description: "Try it instantly",
+            image: "https://guardianshot.blr1.cdn.digitaloceanspaces.com/selfie%20notification%20banner/Kiddo%20Snap-1.png"
+          },
+          {
+            title: "📸 Vintage Polaroid Style",
+            description: "Create something cozy",
+            image: "https://guardianshot.blr1.cdn.digitaloceanspaces.com/selfie%20notification%20banner/Polaroid.png"
+          },
+          {
+            title: "🌈 Bring Old Photos Alive",
+            description: "Emotional & magical",
+            image: "https://guardianshot.blr1.cdn.digitaloceanspaces.com/selfie%20notification%20banner/Colorize.png"
+          }
+        ];
+
+        // Select a random notification message
+        const randomMessage = notificationMessages[
+          Math.floor(Math.random() * notificationMessages.length)
+        ];
 
         // Send notification
         const notificationResult = await helper.sendFCMNotification({
           fcmToken: user.fcmToken,
-          title: notificationTitle,
-          description: notificationDescription,
+          title: randomMessage.title,
+          description: randomMessage.description,
+          image: randomMessage.image,
         });
 
         if (notificationResult.success) {
+          // Mark user as notified
+          markUserAsNotified(user._id);
           successCount++;
           logger.info(
             `Notification sent successfully to recently active user ${user._id} (last edit: ${daysSinceLastEdit} days ago, ${hoursSinceLastEdit} hours ago)`

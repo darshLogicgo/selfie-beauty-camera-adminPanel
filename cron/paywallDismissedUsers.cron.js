@@ -4,6 +4,7 @@ import { cronNameEnum } from "../config/enum.config.js";
 import { logger } from "../config/logger.config.js";
 import MediaClickModel from "../models/media_click.model.js";
 import helper from "../helper/common.helper.js";
+import { getCountriesInNotificationWindow } from "../helper/cronCountry.helper.js";
 
 /**
  * Cron job to send notifications to paywall dismissed users who:
@@ -12,7 +13,9 @@ import helper from "../helper/common.helper.js";
  * - Gentle nudges only
  */
 export const runPaywallDismissedUsersCron = async () => {
-  logger.info("CRON START >> Paywall Dismissed Users - Finding users to notify");
+  logger.info(
+    "CRON START >> Paywall Dismissed Users - Finding users to notify"
+  );
 
   try {
     // Calculate last 7 days range
@@ -26,7 +29,9 @@ export const runPaywallDismissedUsersCron = async () => {
       .populate("userId", "fcmToken isDeleted isSubscribe")
       .lean();
 
-    logger.info(`Found ${mediaClicks.length} users with paywall dismissed entry data`);
+    logger.info(
+      `Found ${mediaClicks.length} users with paywall dismissed entry data`
+    );
 
     const results = [];
     let successCount = 0;
@@ -43,7 +48,9 @@ export const runPaywallDismissedUsersCron = async () => {
         ) {
           skippedCount++;
           logger.warn(
-            `Skipping user ${mediaClick.userId?._id || "unknown"}: missing FCM token or deleted`
+            `Skipping user ${
+              mediaClick.userId?._id || "unknown"
+            }: missing FCM token or deleted`
           );
           continue;
         }
@@ -58,19 +65,20 @@ export const runPaywallDismissedUsersCron = async () => {
         }
 
         // Check if user has paywall dismissed in last 7 days
-        const hasPaywallDismissedInLast7Days = mediaClick.paywall_dismissed_entry?.some((entry) => {
-          if (!entry.date || entry.count < 1) {
-            return false;
-          }
+        const hasPaywallDismissedInLast7Days =
+          mediaClick.paywall_dismissed_entry?.some((entry) => {
+            if (!entry.date || entry.count < 1) {
+              return false;
+            }
 
-          // Convert date to moment and check if it's within last 7 days
-          const entryDate = moment(entry.date).startOf("day");
-          return (
-            entryDate.isSameOrAfter(sevenDaysAgo) &&
-            entryDate.isSameOrBefore(today) &&
-            entry.count >= 1
-          );
-        });
+            // Convert date to moment and check if it's within last 7 days
+            const entryDate = moment(entry.date).startOf("day");
+            return (
+              entryDate.isSameOrAfter(sevenDaysAgo) &&
+              entryDate.isSameOrBefore(today) &&
+              entry.count >= 1
+            );
+          });
 
         // If user doesn't have paywall dismissed in last 7 days, skip
         if (!hasPaywallDismissedInLast7Days) {
@@ -79,6 +87,18 @@ export const runPaywallDismissedUsersCron = async () => {
         }
 
         const user = mediaClick.userId;
+
+        // Check if user has already been notified in this execution
+        const { isUserAlreadyNotified, markUserAsNotified } = await import(
+          "./countryNotification.cron.js"
+        );
+        if (isUserAlreadyNotified(user._id)) {
+          skippedCount++;
+          logger.debug(
+            `Skipping user ${user._id}: already notified in this execution`
+          );
+          continue;
+        }
 
         // Find the most recent paywall dismissed date in last 7 days
         const recentPaywallDismissed = mediaClick.paywall_dismissed_entry
@@ -92,42 +112,82 @@ export const runPaywallDismissedUsersCron = async () => {
           })
           .sort((a, b) => moment(b.date).diff(moment(a.date)));
 
-        const lastPaywallDismissedDate = recentPaywallDismissed.length > 0 
-          ? moment(recentPaywallDismissed[0].date) 
-          : null;
-        const daysSinceLastPaywallDismissed = lastPaywallDismissedDate 
-          ? moment().diff(lastPaywallDismissedDate, "days") 
+        const lastPaywallDismissedDate =
+          recentPaywallDismissed.length > 0
+            ? moment(recentPaywallDismissed[0].date)
+            : null;
+        const daysSinceLastPaywallDismissed = lastPaywallDismissedDate
+          ? moment().diff(lastPaywallDismissedDate, "days")
           : 0;
 
         // Gentle notification messages for users who dismissed paywall
+        // 1️⃣1️⃣ PAYWALL DISMISSED USERS
+        // Goal: Gentle reminder (no pressure)
         const notificationMessages = [
           {
-            title: "Still Thinking About Premium? 💭",
-            description: "We noticed you checked out our premium features. Take your time, but remember - unlimited creativity is just a tap away!",
+            feature: "Premium Bundle",
+            title: "✨ Upgrade Anytime",
+            description: "Premium is ready",
+            image: null,
           },
           {
-            title: "Premium Features Await You! ✨",
-            description: "You explored premium features recently. When you're ready, we're here to help you unlock your full creative potential!",
+            feature: "AI Enhancer",
+            title: "😌 Better Quality Awaits",
+            description: "When you want",
+            image:
+              "https://guardianshot.blr1.cdn.digitaloceanspaces.com/selfie%20notification%20banner/AI%20Enhancer.png",
           },
           {
-            title: "No Pressure, Just Possibilities! 🎨",
-            description: "Premium features are always available when you need them. Explore at your own pace and create something amazing!",
+            feature: "Face Swap",
+            title: "🎭 More Looks Available",
+            description: "Upgrade later",
+            image:
+              "https://guardianshot.blr1.cdn.digitaloceanspaces.com/selfie%20notification%20banner/Face%20Swap.png",
+          },
+          {
+            feature: "HD Save",
+            title: "📸 HD Saves Ready",
+            description: "Unlock anytime",
+            image: null,
+          },
+          {
+            feature: "Filters",
+            title: "🎨 Premium Styles",
+            description: "Waiting for you",
+            image: null,
+          },
+          {
+            feature: "Object Removal",
+            title: "✨ Clean Photos Easily",
+            description: "With Pro",
+            image:
+              "https://guardianshot.blr1.cdn.digitaloceanspaces.com/selfie%20notification%20banner/Object%20Remover.png",
+          },
+          {
+            feature: "Premium Bundle",
+            title: "🌟 Go Pro Your Way",
+            description: "No pressure",
+            image: null,
           },
         ];
 
         // Select a random message for variety
-        const randomMessage = notificationMessages[
-          Math.floor(Math.random() * notificationMessages.length)
-        ];
+        const randomMessage =
+          notificationMessages[
+            Math.floor(Math.random() * notificationMessages.length)
+          ];
 
         // Send notification
         const notificationResult = await helper.sendFCMNotification({
           fcmToken: user.fcmToken,
           title: randomMessage.title,
           description: randomMessage.description,
+          image: randomMessage.image,
         });
 
         if (notificationResult.success) {
+          // Mark user as notified
+          markUserAsNotified(user._id);
           successCount++;
           logger.info(
             `Notification sent successfully to paywall dismissed user ${user._id} (last dismissed: ${daysSinceLastPaywallDismissed} days ago)`
@@ -193,4 +253,3 @@ agenda.define(cronNameEnum.PAYWALL_DISMISSED_USERS, async () => {
     logger.error("Error executing Paywall Dismissed Users cron:", error);
   }
 });
-

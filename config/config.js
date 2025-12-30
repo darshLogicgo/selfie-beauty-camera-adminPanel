@@ -51,6 +51,8 @@ const envVarsSchema = Joi.object({
   REVENUECAT_API_KEY: Joi.string().optional(),
   REVENUECAT_API_VERSION: Joi.string().valid("v1", "v2").optional().default("v1"),
   REVENUECAT_WEBHOOK_SECRET: Joi.string().optional(),
+
+  GA4_PROPERTY_ID: Joi.string().optional(),
 })
   .unknown()
   .prefs({ errors: { label: "key" } });
@@ -119,5 +121,8 @@ export default {
     apiVersion: envVars.REVENUECAT_API_VERSION || "v1",
     apiBaseUrl: "https://api.revenuecat.com",
     webhookSecret: envVars.REVENUECAT_WEBHOOK_SECRET || "",
+  },
+  ga4: {
+    propertyId: envVars.GA4_PROPERTY_ID || "443553869",
   },
 };

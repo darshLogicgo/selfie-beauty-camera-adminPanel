@@ -4,6 +4,7 @@ import { cronNameEnum } from "../config/enum.config.js";
 import { logger } from "../config/logger.config.js";
 import MediaClickModel from "../models/media_click.model.js";
 import helper from "../helper/common.helper.js";
+import { getCountriesInNotificationWindow } from "../helper/cronCountry.helper.js";
 
 /**
  * Cron job to send notifications to almost-subscribers who:
@@ -80,6 +81,14 @@ export const runAlmostSubscribersCron = async () => {
 
         const user = mediaClick.userId;
 
+        // Check if user has already been notified in this execution
+        const { isUserAlreadyNotified, markUserAsNotified } = await import("./countryNotification.cron.js");
+        if (isUserAlreadyNotified(user._id)) {
+          skippedCount++;
+          logger.debug(`Skipping user ${user._id}: already notified in this execution`);
+          continue;
+        }
+
         // Find the most recent paywall opened date in last 14 days
         const recentPaywallOpens = mediaClick.paywall_opened_entry
           .filter((entry) => {
@@ -99,36 +108,62 @@ export const runAlmostSubscribersCron = async () => {
           ? moment().diff(lastPaywallOpenDate, "days") 
           : 0;
 
-        // Notification messages focused on trials, benefits, or social proof
+        // Random notification messages for paywall opened users (no purchase)
+        // Goal: Warm conversion
         const notificationMessages = [
           {
-            title: "Unlock Premium Features! ✨",
-            description: "You were exploring premium features! Start your free trial and unlock unlimited creative possibilities!",
+            title: "🎉 50% Off Just for You",
+            description: "Unlock all AI tools",
+            image: null // No image for this one
           },
           {
-            title: "Join Thousands of Happy Creators! 🎨",
-            description: "See what premium users are creating! Start your subscription and access exclusive features today!",
+            title: "✨ Pro Enhancer Mode",
+            description: "Next-level quality",
+            image: "https://guardianshot.blr1.cdn.digitaloceanspaces.com/selfie%20notification%20banner/AI%20Enhancer.png"
           },
           {
-            title: "Don't Miss Out on Premium! 💎",
-            description: "You've shown interest in premium features. Try it now with our special offer and transform your creativity!",
+            title: "😎 Premium Face Swaps",
+            description: "Go viral",
+            image: "https://guardianshot.blr1.cdn.digitaloceanspaces.com/selfie%20notification%20banner/Face%20Swap.png"
           },
+          {
+            title: "💎 Pro Clean Tool",
+            description: "One tap perfection",
+            image: "https://guardianshot.blr1.cdn.digitaloceanspaces.com/selfie%20notification%20banner/Object%20Remover.png"
+          },
+          {
+            title: "📸 Save in Ultra HD",
+            description: "Upgrade now",
+            image: null // No image for this one
+          },
+          {
+            title: "💄 Pro Makeup Looks",
+            description: "Unlimited styles",
+            image: "https://guardianshot.blr1.cdn.digitaloceanspaces.com/selfie%20notification%20banner/Makeup.png"
+          },
+          {
+            title: "⏰ Last Chance",
+            description: "Offer ending soon",
+            image: null // No image for this one
+          }
         ];
 
-        // Select a random message for variety
+        // Select a random notification message
         const randomMessage = notificationMessages[
           Math.floor(Math.random() * notificationMessages.length)
         ];
-        console.log("randomMessage", randomMessage);
 
         // Send notification
         const notificationResult = await helper.sendFCMNotification({
           fcmToken: user.fcmToken,
           title: randomMessage.title,
           description: randomMessage.description,
+          image: randomMessage.image,
         });
 
         if (notificationResult.success) {
+          // Mark user as notified
+          markUserAsNotified(user._id);
           successCount++;
           logger.info(
             `Notification sent successfully to almost-subscriber ${user._id} (last paywall open: ${daysSinceLastPaywallOpen} days ago)`

@@ -4,6 +4,7 @@ import { cronNameEnum } from "../config/enum.config.js";
 import { logger } from "../config/logger.config.js";
 import MediaClickModel from "../models/media_click.model.js";
 import helper from "../helper/common.helper.js";
+import { getCountriesInNotificationWindow } from "../helper/cronCountry.helper.js";
 
 /**
  * Cron job to send notifications to fully churned users who:
@@ -29,7 +30,9 @@ export const runChurnedUsersCron = async () => {
       .populate("userId", "fcmToken isDeleted")
       .lean();
 
-    logger.info(`Found ${mediaClicks.length} users with AI edit daily count data`);
+    logger.info(
+      `Found ${mediaClicks.length} users with AI edit daily count data`
+    );
 
     const results = [];
     let successCount = 0;
@@ -51,7 +54,10 @@ export const runChurnedUsersCron = async () => {
         // Find the last edit (most recent entry) from ai_edit_daily_count array
         let lastEditEntry = null;
 
-        if (mediaClick.ai_edit_daily_count && Array.isArray(mediaClick.ai_edit_daily_count)) {
+        if (
+          mediaClick.ai_edit_daily_count &&
+          Array.isArray(mediaClick.ai_edit_daily_count)
+        ) {
           // Filter entries with valid date and count >= 1
           const validEntries = mediaClick.ai_edit_daily_count.filter(
             (entry) => entry.date && entry.count >= 1
@@ -91,27 +97,111 @@ export const runChurnedUsersCron = async () => {
 
         const user = mediaClick.userId;
 
-        // Notification messages focused on big AI engine upgrades and trending effects
-        let notificationTitle = "Major AI Upgrade! 🚀";
-        let notificationDescription = "";
-
-        if (daysSinceLastEdit >= 31 && daysSinceLastEdit < 60) {
-          notificationDescription = "We've completely upgraded our AI engine! Experience revolutionary new editing capabilities and trending effects.";
-        } else if (daysSinceLastEdit >= 60 && daysSinceLastEdit < 90) {
-          notificationDescription = "Big news! Our AI engine has been completely rebuilt with cutting-edge technology. See what's new!";
-        } else {
-          // 90+ days
-          notificationDescription = "We've transformed the app with a powerful new AI engine and trending effects! Come back and see the difference.";
+        // Check if user has already been notified in this execution
+        const { isUserAlreadyNotified, markUserAsNotified } = await import(
+          "./countryNotification.cron.js"
+        );
+        if (isUserAlreadyNotified(user._id)) {
+          skippedCount++;
+          logger.debug(
+            `Skipping user ${user._id}: already notified in this execution`
+          );
+          continue;
         }
 
+        // Notification messages focused on big AI engine upgrades and trending effects
+        // let notificationTitle = "Major AI Upgrade! 🚀";
+        // let notificationDescription = "";
+
+        // if (daysSinceLastEdit >= 31 && daysSinceLastEdit < 60) {
+        //   notificationDescription =
+        //     "We've completely upgraded our AI engine! Experience revolutionary new editing capabilities and trending effects.";
+        // } else if (daysSinceLastEdit >= 60 && daysSinceLastEdit < 90) {
+        //   notificationDescription =
+        //     "Big news! Our AI engine has been completely rebuilt with cutting-edge technology. See what's new!";
+        // } else {
+        //   // 90+ days
+        //   notificationDescription =
+        //     "We've transformed the app with a powerful new AI engine and trending effects! Come back and see the difference.";
+        // }
+
+        // 7️⃣ CHURNED USERS (30+ Days)
+        // Goal: Viral comeback / shock + curiosity
+        const churnedNotificationMessages = [
+          {
+            feature: "Face Swap",
+            title: "🚨 Viral Face Swap Alert",
+            description: "Millions already tried",
+            image:
+              "https://guardianshot.blr1.cdn.digitaloceanspaces.com/selfie%20notification%20banner/Face%20Swap.png",
+          },
+          {
+            feature: "AI Enhancer",
+            title: "🔥 10× Better Quality",
+            description: "Results shock everyone",
+            image:
+              "https://guardianshot.blr1.cdn.digitaloceanspaces.com/selfie%20notification%20banner/AI%20Enhancer.png",
+          },
+          {
+            feature: "3D Model",
+            title: "😳 You’re in 3D!?",
+            description: "Yes, it’s real",
+            image:
+              "https://guardianshot.blr1.cdn.digitaloceanspaces.com/selfie%20notification%20banner/3D%20Model.png",
+          },
+          {
+            feature: "Bikini",
+            title: "👙 Viral Beach Look",
+            description: "Everyone’s testing it",
+            image:
+              "https://guardianshot.blr1.cdn.digitaloceanspaces.com/selfie%20notification%20banner/Bikini.png",
+          },
+          {
+            feature: "Makeup Transfer",
+            title: "💄 Celebrity Makeup Look",
+            description: "Try it on yourself",
+            image:
+              "https://guardianshot.blr1.cdn.digitaloceanspaces.com/selfie%20notification%20banner/Makeup.png",
+          },
+          {
+            feature: "Object Removal",
+            title: "✨ Perfect Photos Again",
+            description: "Clean shots instantly",
+            image:
+              "https://guardianshot.blr1.cdn.digitaloceanspaces.com/selfie%20notification%20banner/Object%20Remover.png",
+          },
+          {
+            feature: "Premium Bundle",
+            title: "🎉 Come Back Strong",
+            description: "Unlock all AI tools",
+            image: null,
+          },
+        ];
+
+        // Pick random message
+        const randomMessage =
+          churnedNotificationMessages[
+            Math.floor(Math.random() * churnedNotificationMessages.length)
+          ];
+
         // Send notification
+        // const notificationResult = await helper.sendFCMNotification({
+        //   fcmToken: user.fcmToken,
+        //   title: notificationTitle,
+        //   description: notificationDescription,
+        // });
+        console.log("randomMessage", randomMessage);
+
         const notificationResult = await helper.sendFCMNotification({
           fcmToken: user.fcmToken,
-          title: notificationTitle,
-          description: notificationDescription,
+          title: randomMessage.title,
+          description: randomMessage.description,
+          image: randomMessage.image,
         });
 
         if (notificationResult.success) {
+          // Mark user as notified
+          markUserAsNotified(user._id);
           successCount++;
           logger.info(
             `Notification sent successfully to churned user ${user._id} (last edit: ${daysSinceLastEdit} days ago)`
@@ -176,4 +266,3 @@ agenda.define(cronNameEnum.CHURNED_USERS, async () => {
     logger.error("Error executing Churned Users cron:", error);
   }
 });
-

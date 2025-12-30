@@ -4,6 +4,7 @@ import { cronNameEnum } from "../config/enum.config.js";
 import { logger } from "../config/logger.config.js";
 import MediaClickModel from "../models/media_click.model.js";
 import helper from "../helper/common.helper.js";
+import { getCountriesInNotificationWindow } from "../helper/cronCountry.helper.js";
 
 /**
  * Cron job to send notifications to users who:
@@ -75,6 +76,14 @@ export const runSavedEditUsersCron = async () => {
 
         const user = mediaClick.userId;
 
+        // Check if user has already been notified in this execution
+        const { isUserAlreadyNotified, markUserAsNotified } = await import("./countryNotification.cron.js");
+        if (isUserAlreadyNotified(user._id)) {
+          skippedCount++;
+          logger.debug(`Skipping user ${user._id}: already notified in this execution`);
+          continue;
+        }
+
         // Notification messages focused on Pro upsell & HD quality
         const notificationTitle = "Unlock Pro Features! ✨";
         const notificationDescription = `You've saved ${savedEditsInLast30Days} amazing edits! Upgrade to Pro for HD quality exports and premium features.`;
@@ -87,6 +96,8 @@ export const runSavedEditUsersCron = async () => {
         });
 
         if (notificationResult.success) {
+          // Mark user as notified
+          markUserAsNotified(user._id);
           successCount++;
           logger.info(
             `Notification sent successfully to saved edit user ${user._id} (${savedEditsInLast30Days} saved edits in last 30 days)`

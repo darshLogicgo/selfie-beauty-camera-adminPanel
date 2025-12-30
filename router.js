@@ -14,6 +14,7 @@ import dashboardRoute from "./routes/dashboard.route.js";
 import shareRoute from "./routes/share.route.js";
 import subscriptionRoute from "./routes/subscription.route.js";
 import notificationRoute from "./routes/notification.route.js";
+import ga4Route from "./routes/ga4.route.js";
 
 export default {
   authRoute,
@@ -31,4 +32,5 @@ export default {
   dashboardRoute,
   subscriptionRoute,
   notificationRoute,
+  ga4Route,
 };
