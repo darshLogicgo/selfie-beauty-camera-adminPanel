@@ -21,9 +21,9 @@ import { runPaywallDismissedUsersCron } from "../cron/paywallDismissedUsers.cron
 import { runCountryNotificationCron } from "../cron/countryNotification.cron.js";
 import UserPreference from "../models/user-preference.model.js";
 
-import {
-  runRecentlyActiveUsersCron,
-} from "../cron/recentlyActiveUsers.cron.js";
+// import {
+//   runRecentlyActiveUsersCron,
+// } from "../cron/recentlyActiveUsers.cron.js";
 
 /**
  * GET Dashboard Statistics
