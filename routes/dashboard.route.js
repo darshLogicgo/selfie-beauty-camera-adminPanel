@@ -18,6 +18,28 @@ route.get(
 );
 
 /**
+ * GET /api/v1/dashboard/feature-performance
+ * Get feature performance data (Admin only)
+ */
+route.get(
+  "/feature-performance",
+  // verifyToken,
+  // verifyRole([enums.userRoleEnum.ADMIN]),
+  dashboardController.getFeaturePerformance
+);
+
+/**
+ * GET /api/v1/dashboard/device-distribution
+ * Get device distribution data (Admin only)
+ */
+route.get(
+  "/device-distribution",
+  // verifyToken,
+  // verifyRole([enums.userRoleEnum.ADMIN]),
+  dashboardController.getDeviceDistribution
+);
+
+/**
  * POST /api/v1/dashboard/test-ai-edit-reminder-cron
  * Test endpoint to manually trigger AI Edit Reminder cron job (Admin only)
  */
