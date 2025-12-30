@@ -44,10 +44,26 @@ const CategorySchema = new mongoose.Schema(
     // More section fields
     isMore: { type: Boolean, default: false }, // Whether category is in More section
     moreOrder: { type: Number, default: 0 }, // Order in More section (starts from 1)
-    
+
     // User Preference section fields
     isUserPreference: { type: Boolean, default: false }, // Whether category is in user preference section
     userPreferenceOrder: { type: Number, default: 0 }, // Order in user preference section (starts from 1)
+
+    // Country and App Version fields
+    country: { type: String, default: null }, // Country filter (optional)
+    android_appVersion: { type: String, default: null }, // Android app version filter (optional)
+    ios_appVersion: { type: String, default: null }, // iOS app version filter (optional)
+
+    // Asset images array
+    asset_images: [
+      {
+        _id: mongoose.Schema.Types.ObjectId,
+        url: { type: String, required: true },
+        isPremium: { type: Boolean, default: false },
+        imageCount: { type: Number, default: 1, min: 1 },
+        prompt: { type: String, default: "", trim: true }, // Optional prompt field
+      },
+    ], // Array of asset objects with _id, url, isPremium, imageCount, and prompt
 
     isDeleted: { type: Boolean, default: false },
   },
@@ -135,8 +151,16 @@ CategorySchema.index({
 CategorySchema.index({ isDeleted: 1, section7Order: -1 });
 
 // Indexes for User Preference queries
-CategorySchema.index({ isDeleted: 1, isUserPreference: 1, userPreferenceOrder: 1 }); // Ascending for normal queries
-CategorySchema.index({ isDeleted: 1, isUserPreference: 1, userPreferenceOrder: -1 }); // Descending for max order queries
+CategorySchema.index({
+  isDeleted: 1,
+  isUserPreference: 1,
+  userPreferenceOrder: 1,
+}); // Ascending for normal queries
+CategorySchema.index({
+  isDeleted: 1,
+  isUserPreference: 1,
+  userPreferenceOrder: -1,
+}); // Descending for max order queries
 CategorySchema.index({
   isDeleted: 1,
   status: 1,

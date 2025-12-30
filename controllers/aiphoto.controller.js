@@ -45,8 +45,13 @@ export const getAiPhotoSubcategories = async (req, res) => {
       });
     }
 
+    // Filter by app version if user is logged in
+    const userAppVersion = req.user?.appVersion;
+    const userProvider = req.user?.provider;
+    const filteredItems = helper.filterSubcategoriesByVersion(items, userAppVersion, userProvider);
+
     // Transform each subcategory to have name, photos array (with new structure), imageCount, and isPremium
-    const formattedData = items.map((item) => {
+    const formattedData = filteredItems.map((item) => {
       // Get asset_images for this subcategory and normalize to new structure
       const photos = [];
       if (
@@ -396,8 +401,13 @@ export const getAllSubcategoriesForAiPhoto = async (req, res) => {
       { $project: { aiPhotoOrderSort: 0, sortAiPhotoOrder: 0 } },
     ]);
 
+    // Filter by app version if user is logged in
+    const userAppVersion = req.user?.appVersion;
+    const userProvider = req.user?.provider;
+    const filteredItems = helper.filterSubcategoriesByVersion(items, userAppVersion, userProvider);
+
     // Ensure imageCount and isPremium fields exist with default values and normalize asset_images
-    const itemsWithDefaults = items.map((subcategory) => {
+    const itemsWithDefaults = filteredItems.map((subcategory) => {
       // Normalize asset_images to new structure (handle legacy string format)
       const normalizedAssets = (subcategory.asset_images || [])
         .map((asset) => {

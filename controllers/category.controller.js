@@ -5,8 +5,63 @@ import fileUploadService from "../services/file.upload.service.js";
 import { apiResponse } from "../helper/api-response.helper.js";
 import { StatusCodes } from "http-status-codes";
 import enums from "../config/enum.config.js";
+import helper from "../helper/common.helper.js";
 
 const { MediaTypes } = enums;
+
+// Helper function to preserve existing _id from database or create new one
+const preserveAssetId = (asset) => {
+  if (!asset || !asset._id) {
+    return new mongoose.Types.ObjectId();
+  }
+  if (asset._id instanceof mongoose.Types.ObjectId) {
+    return asset._id;
+  }
+  if (typeof asset._id === "string") {
+    return mongoose.Types.ObjectId.isValid(asset._id)
+      ? new mongoose.Types.ObjectId(asset._id)
+      : new mongoose.Types.ObjectId();
+  }
+  if (asset._id.toString && typeof asset._id.toString === "function") {
+    const idString = asset._id.toString();
+    return mongoose.Types.ObjectId.isValid(idString)
+      ? new mongoose.Types.ObjectId(idString)
+      : new mongoose.Types.ObjectId();
+  }
+  try {
+    const idString = String(asset._id);
+    return mongoose.Types.ObjectId.isValid(idString)
+      ? new mongoose.Types.ObjectId(idString)
+      : new mongoose.Types.ObjectId();
+  } catch {
+    return new mongoose.Types.ObjectId();
+  }
+};
+
+// Normalize asset_images array - preserve IDs from database
+const normalizeAssets = (assets) => {
+  if (!Array.isArray(assets)) return [];
+  return assets
+    .map((asset) => {
+      if (typeof asset === "string") {
+        return {
+          _id: new mongoose.Types.ObjectId(),
+          url: asset,
+          isPremium: false,
+          imageCount: 1,
+          prompt: "",
+        };
+      }
+      return {
+        _id: preserveAssetId(asset),
+        url: asset.url || "",
+        isPremium: asset.isPremium !== undefined ? asset.isPremium : false,
+        imageCount: asset.imageCount !== undefined ? asset.imageCount : 1,
+        prompt: asset.prompt !== undefined ? String(asset.prompt).trim() : "",
+      };
+    })
+    .filter((asset) => asset.url && asset.url.trim() !== "");
+};
 
 /**
  * Create new category with optional media files
@@ -26,6 +81,9 @@ const createCategory = async (req, res) => {
       imageCount,
       imagecount, // Handle lowercase variant from form-data
       prompt,
+      country,
+      android_appVersion,
+      ios_appVersion,
     } = req.body;
     const files = req.files || {};
 
@@ -91,6 +149,17 @@ const createCategory = async (req, res) => {
       imageCount: finalImageCount,
       prompt: prompt !== undefined ? prompt.trim() : "",
     };
+
+    // Add country and appVersion if provided
+    if (country !== undefined && country !== null && country !== "") {
+      payload.country = country.trim();
+    }
+    if (android_appVersion !== undefined && android_appVersion !== null && android_appVersion !== "") {
+      payload.android_appVersion = android_appVersion.trim();
+    }
+    if (ios_appVersion !== undefined && ios_appVersion !== null && ios_appVersion !== "") {
+      payload.ios_appVersion = ios_appVersion.trim();
+    }
 
     // Always assign trending order (regardless of isTrending status)
     // Query max trendingOrder from ALL categories (not just trending ones) to ensure unique incrementing order
@@ -237,6 +306,36 @@ const createCategory = async (req, res) => {
       payload[key] = url;
     });
 
+    // Process asset_images files if provided
+    if (req.files?.asset_images && Array.isArray(req.files.asset_images)) {
+      const { isPremium = false, prompt = "" } = req.body || {};
+      const finalIsPremium = Boolean(isPremium);
+      const finalPrompt = String(prompt || "").trim();
+
+      const assetObjects = [];
+      for (const file of req.files.asset_images) {
+        try {
+          const fileUrl = await fileUploadService.uploadFile({
+            buffer: file.buffer,
+            mimetype: file.mimetype,
+            folder: "categories/assets",
+          });
+          assetObjects.push({
+            _id: new mongoose.Types.ObjectId(),
+            url: fileUrl,
+            isPremium: finalIsPremium,
+            imageCount: 1, // Default to 1, can be updated via asset-specific APIs
+            prompt: finalPrompt,
+          });
+        } catch (err) {
+          console.error("Error uploading asset:", err);
+        }
+      }
+      if (assetObjects.length > 0) {
+        payload.asset_images = assetObjects;
+      }
+    }
+
     // Create category in database
     const created = await categoryService.create(payload);
 
@@ -297,6 +396,10 @@ const getCategories = async (req, res) => {
         moreOrder: 1,
         isUserPreference: 1,
         userPreferenceOrder: 1,
+        country: 1,
+        android_appVersion: 1,
+        ios_appVersion: 1,
+        asset_images: 1,
         updatedAt: 1,
         createdAt: 1,
       })
@@ -337,6 +440,7 @@ const getCategories = async (req, res) => {
 /**
  * Get all category titles only (public)
  * Returns _id and name for all active categories (status: true only)
+ * Filtered by user app version if logged in
  * @route GET /api/v1/categories/titles
  * @access Public
  */
@@ -345,16 +449,21 @@ const getCategoryTitles = async (req, res) => {
     // Only fetch active categories (status: true) that are not deleted
     const categories = await categoryService
       .find({ isDeleted: false, status: true })
-      .select({ _id: 1, name: 1 })
+      .select({ _id: 1, name: 1, android_appVersion: 1, ios_appVersion: 1 })
       .sort({ order: 1, createdAt: 1 })
       .lean();
+
+    // Filter by app version if user is logged in
+    const userAppVersion = req.user?.appVersion;
+    const userProvider = req.user?.provider;
+    const filteredCategories = helper.filterCategoriesByAppVersion(req.user, categories);
 
     return apiResponse({
       res,
       statusCode: StatusCodes.OK,
       status: true,
       message: "Category titles fetched successfully",
-      data: categories,
+      data: filteredCategories,
     });
   } catch (error) {
     console.error("Fetch Category Titles Error:", error);
@@ -439,7 +548,7 @@ const getCategoryById = async (req, res) => {
 const updateCategory = async (req, res) => {
   try {
     const { id } = req.params;
-    const { name, status, order, isPremium, imageCount, prompt } = req.body;
+    const { name, status, order, isPremium, imageCount, prompt, country, android_appVersion, ios_appVersion } = req.body;
     const files = req.files || {};
 
     if (!mongoose.Types.ObjectId.isValid(id)) {
@@ -477,6 +586,17 @@ const updateCategory = async (req, res) => {
       updateData.isUserPreference = req.body.isUserPreference;
     if (req.body.userPreferenceOrder !== undefined)
       updateData.userPreferenceOrder = Number(req.body.userPreferenceOrder);
+    
+    // Handle country and appVersion (allow null/empty to clear the field)
+    if (country !== undefined) {
+      updateData.country = country === null || country === "" || country === "null" ? null : country.trim();
+    }
+    if (android_appVersion !== undefined) {
+      updateData.android_appVersion = android_appVersion === null || android_appVersion === "" || android_appVersion === "null" ? null : android_appVersion.trim();
+    }
+    if (ios_appVersion !== undefined) {
+      updateData.ios_appVersion = ios_appVersion === null || ios_appVersion === "" || ios_appVersion === "null" ? null : ios_appVersion.trim();
+    }
 
     // Handle media file updates and null assignments
     const updatePromises = [];
@@ -670,6 +790,26 @@ const deleteCategory = async (req, res) => {
             console.warn("Warning: Failed to delete video_rec:", err.message)
           )
       );
+    }
+
+    // Delete asset images if they exist
+    if (existing.asset_images && existing.asset_images.length > 0) {
+      for (const asset of existing.asset_images) {
+        try {
+          const url = typeof asset === "string" ? asset : asset.url;
+          if (url) {
+            deletePromises.push(
+              fileUploadService
+                .deleteFile({ url })
+                .catch((err) =>
+                  console.warn("Warning: Failed to delete asset:", err.message)
+                )
+            );
+          }
+        } catch (err) {
+          console.error(`Failed to delete asset:`, err);
+        }
+      }
     }
 
     // Wait for file deletion (non-blocking for some failures)
@@ -1084,6 +1224,733 @@ const toggleCategoryPremium = async (req, res) => {
 };
 
 
+// Upload Asset Images
+const uploadAssetImages = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return apiResponse({
+        res,
+        status: false,
+        statusCode: StatusCodes.BAD_REQUEST,
+        message: "Invalid category id",
+      });
+    }
+
+    const item = await Category.findById(id);
+    if (!item) {
+      return apiResponse({
+        res,
+        status: false,
+        statusCode: StatusCodes.NOT_FOUND,
+        message: "Category not found",
+      });
+    }
+
+    // Process uploaded files
+    const {
+      isPremium = false,
+      imageCount,
+      imagecount,
+      prompt = "",
+    } = req.body || {};
+    const finalIsPremium = Boolean(isPremium);
+    const finalPrompt = String(prompt || "").trim();
+    const assetImageCount =
+      imageCount !== undefined
+        ? Number(imageCount) || 1
+        : imagecount !== undefined
+        ? Number(imagecount) || 1
+        : 1;
+
+    const uploadedAssets = [];
+    if (req.files?.asset_images && Array.isArray(req.files.asset_images)) {
+      for (const file of req.files.asset_images) {
+        try {
+          const fileUrl = await fileUploadService.uploadFile({
+            buffer: file.buffer,
+            mimetype: file.mimetype,
+            folder: "categories/assets",
+          });
+          uploadedAssets.push({
+            _id: new mongoose.Types.ObjectId(),
+            url: fileUrl,
+            isPremium: finalIsPremium,
+            imageCount: assetImageCount,
+            prompt: finalPrompt,
+          });
+        } catch (err) {
+          console.error("Error uploading asset:", err);
+        }
+      }
+    }
+
+    if (uploadedAssets.length === 0) {
+      return apiResponse({
+        res,
+        status: false,
+        statusCode: StatusCodes.BAD_REQUEST,
+        message: "No files were uploaded",
+      });
+    }
+
+    // Filter duplicates
+    const existingUrls = (item.asset_images || []).map((a) =>
+      typeof a === "string" ? a : a.url
+    );
+    const newAssets = uploadedAssets.filter(
+      (asset) => !existingUrls.includes(asset.url)
+    );
+
+    if (newAssets.length === 0) {
+      return apiResponse({
+        res,
+        status: false,
+        statusCode: StatusCodes.BAD_REQUEST,
+        message: "All uploaded files already exist",
+      });
+    }
+
+    const updated = await Category.findByIdAndUpdate(
+      id,
+      { $push: { asset_images: { $each: newAssets } } },
+      { new: true }
+    ).lean();
+
+    return apiResponse({
+      res,
+      status: true,
+      statusCode: StatusCodes.OK,
+      message: `${newAssets.length} asset image(s) uploaded successfully`,
+      data: {
+        ...updated,
+        asset_images: normalizeAssets(updated.asset_images || []),
+      },
+    });
+  } catch (error) {
+    console.error("uploadAssetImages error:", error);
+    return apiResponse({
+      res,
+      status: false,
+      statusCode: StatusCodes.INTERNAL_SERVER_ERROR,
+      message: "Failed to upload asset images",
+    });
+  }
+};
+
+// Get Category Assets
+const getCategoryAssets = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { page = 1, limit = 10 } = req.query;
+
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return apiResponse({
+        res,
+        status: false,
+        statusCode: StatusCodes.BAD_REQUEST,
+        message: "Invalid category id",
+      });
+    }
+
+    const category = await Category.findOne({
+      _id: id,
+      status: true,
+    })
+      .select({ _id: 1, name: 1, asset_images: 1, prompt: 1 })
+      .lean();
+
+    if (!category) {
+      return apiResponse({
+        res,
+        status: false,
+        statusCode: StatusCodes.NOT_FOUND,
+        message: "Category not found or inactive",
+      });
+    }
+
+    const allAssetImages = normalizeAssets(category.asset_images || []);
+    const { skip, limit: limitNum } = helper.paginationFun({
+      page,
+      limit,
+    });
+    const paginatedAssetImages = allAssetImages.slice(skip, skip + limitNum);
+    const pagination = helper.paginationDetails({
+      page,
+      totalItems: allAssetImages.length,
+      limit: limitNum,
+    });
+
+    return apiResponse({
+      res,
+      status: true,
+      statusCode: StatusCodes.OK,
+      message: "Category assets fetched successfully",
+      data: {
+        _id: category._id,
+        name: category.name,
+        asset_images: paginatedAssetImages,
+        pagination,
+      },
+    });
+  } catch (error) {
+    console.error("getCategoryAssets error:", error);
+    return apiResponse({
+      res,
+      status: false,
+      statusCode: StatusCodes.INTERNAL_SERVER_ERROR,
+      message: "Failed to fetch category assets",
+    });
+  }
+};
+
+// Delete Asset Image
+const deleteAssetImage = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const assetId =
+      (req.query && req.query.assetId) || (req.body && req.body.assetId);
+    const url = (req.query && req.query.url) || (req.body && req.body.url);
+
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return apiResponse({
+        res,
+        status: false,
+        statusCode: StatusCodes.BAD_REQUEST,
+        message: "Invalid category id",
+      });
+    }
+
+    if (!assetId && !url) {
+      return apiResponse({
+        res,
+        status: false,
+        statusCode: StatusCodes.BAD_REQUEST,
+        message:
+          'Either assetId or url is required. Provide in query params or body: { "assetId": "<id>" } or { "url": "<url>" }',
+      });
+    }
+
+    const item = await Category.findById(id);
+
+    if (!item) {
+      return apiResponse({
+        res,
+        status: false,
+        statusCode: StatusCodes.NOT_FOUND,
+        message: "Category not found",
+      });
+    }
+
+    let assetToDelete = null;
+    let assetIndex = -1;
+
+    if (assetId) {
+      const assets = item.asset_images || [];
+      assetIndex = assets.findIndex((asset) => {
+        if (typeof asset === "string") return false;
+        if (!asset || !asset._id) return false;
+        return (
+          asset._id.toString() === assetId ||
+          asset._id.toString() === String(assetId)
+        );
+      });
+      if (assetIndex !== -1) {
+        assetToDelete = assets[assetIndex];
+      }
+    } else if (url) {
+      const decodedUrl = req.query.url ? decodeURIComponent(url) : url;
+      const assets = item.asset_images || [];
+      assetIndex = assets.findIndex((asset) => {
+        if (typeof asset === "string") return asset === decodedUrl;
+        if (!asset) return false;
+        return (
+          asset.url === decodedUrl ||
+          (asset._id && asset._id.toString() === decodedUrl)
+        );
+      });
+      if (assetIndex !== -1) {
+        assetToDelete = assets[assetIndex];
+      }
+    }
+
+    if (!assetToDelete || assetIndex === -1) {
+      return apiResponse({
+        res,
+        status: false,
+        statusCode: StatusCodes.NOT_FOUND,
+        message: "Asset image not found in this category",
+      });
+    }
+
+    const assetObj =
+      assetToDelete && typeof assetToDelete.toObject === "function"
+        ? assetToDelete.toObject()
+        : assetToDelete;
+
+    const urlToDelete =
+      typeof assetObj === "string"
+        ? assetObj
+        : assetObj && assetObj.url
+        ? assetObj.url
+        : null;
+    if (urlToDelete) {
+      try {
+        await fileUploadService.deleteFile({ url: urlToDelete });
+      } catch (err) {
+        console.error("Failed to delete asset from cloud:", err);
+      }
+    }
+
+    let pullQuery;
+    if (typeof assetObj === "string") {
+      pullQuery = urlToDelete;
+    } else {
+      if (assetObj && assetObj._id) {
+        pullQuery = { _id: assetObj._id };
+      } else if (urlToDelete) {
+        pullQuery = { url: urlToDelete };
+      } else {
+        pullQuery = assetObj;
+      }
+    }
+
+    const updated = await Category.findByIdAndUpdate(
+      id,
+      {
+        $pull: {
+          asset_images: pullQuery,
+        },
+      },
+      { new: true }
+    ).lean();
+
+    return apiResponse({
+      res,
+      status: true,
+      statusCode: StatusCodes.OK,
+      message: "Asset image deleted successfully",
+      data: {
+        ...updated,
+        asset_images: normalizeAssets(updated.asset_images || []),
+      },
+    });
+  } catch (error) {
+    console.error("deleteAssetImage error:", error);
+    return apiResponse({
+      res,
+      status: false,
+      statusCode: StatusCodes.INTERNAL_SERVER_ERROR,
+      message: "Failed to delete asset image",
+    });
+  }
+};
+
+// Manage Category Assets (add or remove URLs)
+const manageCategoryAssets = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { addUrl, removeUrl, removeUrls } = req.body || {};
+
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return apiResponse({
+        res,
+        status: false,
+        statusCode: StatusCodes.BAD_REQUEST,
+        message: "Invalid category id",
+      });
+    }
+
+    const item = await Category.findById(id);
+    if (!item) {
+      return apiResponse({
+        res,
+        status: false,
+        statusCode: StatusCodes.NOT_FOUND,
+        message: "Category not found",
+      });
+    }
+
+    const {
+      isPremium = false,
+      imageCount,
+      imagecount,
+      prompt = "",
+    } = req.body || {};
+    const finalIsPremium = Boolean(isPremium);
+    const finalPrompt = String(prompt || "").trim();
+    const assetImageCount =
+      imageCount !== undefined
+        ? Number(imageCount) || 1
+        : imagecount !== undefined
+        ? Number(imagecount) || 1
+        : 1;
+
+    // Handle file uploads
+    if (
+      req.files?.asset_images &&
+      Array.isArray(req.files.asset_images) &&
+      req.files.asset_images.length > 0
+    ) {
+      const uploadedAssets = [];
+      const existingUrls = (item.asset_images || []).map((a) =>
+        typeof a === "string" ? a : a.url
+      );
+
+      for (const file of req.files.asset_images) {
+        try {
+          const fileUrl = await fileUploadService.uploadFile({
+            buffer: file.buffer,
+            mimetype: file.mimetype,
+            folder: "categories/assets",
+          });
+
+          if (!existingUrls.includes(fileUrl)) {
+            uploadedAssets.push({
+              _id: new mongoose.Types.ObjectId(),
+              url: fileUrl,
+              isPremium: finalIsPremium,
+              imageCount: assetImageCount,
+              prompt: finalPrompt,
+            });
+            existingUrls.push(fileUrl);
+          }
+        } catch (err) {
+          console.error("Error uploading asset file:", err);
+        }
+      }
+
+      if (uploadedAssets.length > 0) {
+        const updated = await Category.findByIdAndUpdate(
+          id,
+          { $push: { asset_images: { $each: uploadedAssets } } },
+          { new: true }
+        ).lean();
+
+        return apiResponse({
+          res,
+          status: true,
+          statusCode: StatusCodes.OK,
+          message: `${uploadedAssets.length} asset image(s) uploaded successfully`,
+          data: {
+            ...updated,
+            asset_images: normalizeAssets(updated.asset_images || []),
+          },
+        });
+      } else {
+        return apiResponse({
+          res,
+          status: false,
+          statusCode: StatusCodes.BAD_REQUEST,
+          message: "All uploaded files already exist or failed to upload",
+        });
+      }
+    }
+
+    // Add URL
+    if (addUrl) {
+      const existingUrls = (item.asset_images || []).map((a) =>
+        typeof a === "string" ? a : a.url
+      );
+
+      if (existingUrls.includes(addUrl)) {
+        return apiResponse({
+          res,
+          status: false,
+          statusCode: StatusCodes.BAD_REQUEST,
+          message: "Asset image with this URL already exists",
+        });
+      }
+
+      const newAsset = {
+        _id: new mongoose.Types.ObjectId(),
+        url: addUrl,
+        isPremium: finalIsPremium,
+        imageCount: assetImageCount,
+        prompt: finalPrompt,
+      };
+
+      const updated = await Category.findByIdAndUpdate(
+        id,
+        { $push: { asset_images: newAsset } },
+        { new: true }
+      ).lean();
+
+      return apiResponse({
+        res,
+        status: true,
+        statusCode: StatusCodes.OK,
+        message: "Asset image added successfully",
+        data: {
+          ...updated,
+          asset_images: normalizeAssets(updated.asset_images || []),
+        },
+      });
+    }
+
+    // Remove single URL
+    if (removeUrl) {
+      const assetToDelete = (item.asset_images || []).find((asset) => {
+        if (typeof asset === "string") return asset === removeUrl;
+        return asset.url === removeUrl || asset._id?.toString() === removeUrl;
+      });
+
+      if (!assetToDelete) {
+        return apiResponse({
+          res,
+          status: false,
+          statusCode: StatusCodes.NOT_FOUND,
+          message: "Asset image not found",
+        });
+      }
+
+      const urlToDelete =
+        typeof assetToDelete === "string" ? assetToDelete : assetToDelete.url;
+      try {
+        await fileUploadService.deleteFile({ url: urlToDelete });
+      } catch (err) {
+        console.error("Failed to delete asset from cloud:", err);
+      }
+
+      const updated = await Category.findByIdAndUpdate(
+        id,
+        {
+          $pull: {
+            asset_images:
+              typeof assetToDelete === "string"
+                ? removeUrl
+                : { $or: [{ url: urlToDelete }, { _id: assetToDelete._id }] },
+          },
+        },
+        { new: true }
+      ).lean();
+
+      return apiResponse({
+        res,
+        status: true,
+        statusCode: StatusCodes.OK,
+        message: "Asset image removed successfully",
+        data: {
+          ...updated,
+          asset_images: normalizeAssets(updated.asset_images || []),
+        },
+      });
+    }
+
+    // Remove multiple URLs
+    if (removeUrls && Array.isArray(removeUrls) && removeUrls.length > 0) {
+      const assetsToDelete = (item.asset_images || []).filter((asset) => {
+        const url = typeof asset === "string" ? asset : asset.url;
+        const assetId =
+          typeof asset === "string" ? null : asset._id?.toString();
+        return removeUrls.includes(url) || removeUrls.includes(assetId);
+      });
+
+      const deletePromises = assetsToDelete.map((asset) => {
+        const url = typeof asset === "string" ? asset : asset.url;
+        return fileUploadService.deleteFile({ url }).catch((err) => {
+          console.error("Failed to delete asset from cloud:", err);
+          return null;
+        });
+      });
+      await Promise.all(deletePromises);
+
+      const updated = await Category.findByIdAndUpdate(
+        id,
+        {
+          $pull: {
+            asset_images: {
+              $or: [
+                { url: { $in: removeUrls } },
+                {
+                  _id: {
+                    $in: removeUrls
+                      .filter((id) => mongoose.Types.ObjectId.isValid(id))
+                      .map((id) => new mongoose.Types.ObjectId(id)),
+                  },
+                },
+              ],
+            },
+          },
+        },
+        { new: true }
+      ).lean();
+
+      return apiResponse({
+        res,
+        status: true,
+        statusCode: StatusCodes.OK,
+        message: `${assetsToDelete.length} asset image(s) removed successfully`,
+        data: {
+          ...updated,
+          asset_images: normalizeAssets(updated.asset_images || []),
+        },
+      });
+    }
+
+    return apiResponse({
+      res,
+      status: false,
+      statusCode: StatusCodes.BAD_REQUEST,
+      message:
+        "Please provide either file uploads (asset_images), addUrl, removeUrl, or removeUrls (array)",
+    });
+  } catch (error) {
+    console.error("manageCategoryAssets error:", error);
+    return apiResponse({
+      res,
+      status: false,
+      statusCode: StatusCodes.INTERNAL_SERVER_ERROR,
+      message: "Failed to manage asset images",
+    });
+  }
+};
+
+// Update Asset Image
+const updateAssetImage = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { assetId, url, isPremium, imageCount, imagecount, prompt } =
+      req.body || {};
+      console.log("req.body", req.body);  
+
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return apiResponse({
+        res,
+        status: false,
+        statusCode: StatusCodes.BAD_REQUEST,
+        message: "Invalid category id",
+      });
+    }
+
+    if (!assetId && !url) {
+      return apiResponse({
+        res,
+        status: false,
+        statusCode: StatusCodes.BAD_REQUEST,
+        message: "Either assetId or url is required to identify the asset",
+      });
+    }
+
+    if (
+      isPremium === undefined &&
+      imageCount === undefined &&
+      imagecount === undefined &&
+      prompt === undefined
+    ) {
+      return apiResponse({
+        res,
+        status: false,
+        statusCode: StatusCodes.BAD_REQUEST,
+        message:
+          "At least one of isPremium, imageCount, or prompt must be provided",
+      });
+    }
+
+    const item = await Category.findById(id);
+    if (!item) {
+      return apiResponse({
+        res,
+        status: false,
+        statusCode: StatusCodes.NOT_FOUND,
+        message: "Category not found",
+      });
+    }
+
+    let assetToUpdate = null;
+    if (assetId) {
+      assetToUpdate = (item.asset_images || []).find((asset) => {
+        if (typeof asset === "string") return false;
+        return (
+          asset._id?.toString() === assetId ||
+          asset._id?.toString() === String(assetId)
+        );
+      });
+    } else if (url) {
+      assetToUpdate = (item.asset_images || []).find((asset) => {
+        if (typeof asset === "string") return asset === url;
+        return asset.url === url;
+      });
+    }
+
+    if (!assetToUpdate) {
+      return apiResponse({
+        res,
+        status: false,
+        statusCode: StatusCodes.NOT_FOUND,
+        message: "Asset not found in this category",
+      });
+    }
+
+    const updateSet = {};
+
+    if (isPremium !== undefined) {
+      const finalIsPremium =
+        typeof isPremium === "string"
+          ? isPremium.toLowerCase() === "true" || isPremium === "1"
+          : Boolean(isPremium);
+      updateSet["asset_images.$[asset].isPremium"] = finalIsPremium;
+    }
+
+    const finalImageCount =
+      imageCount !== undefined
+        ? Number(imageCount) || 1
+        : imagecount !== undefined
+        ? Number(imagecount) || 1
+        : undefined;
+
+    if (finalImageCount !== undefined) {
+      updateSet["asset_images.$[asset].imageCount"] = finalImageCount;
+    }
+
+    if (prompt !== undefined) {
+      updateSet["asset_images.$[asset].prompt"] = String(prompt).trim();
+    }
+
+    const assetIdentifier = assetId
+      ? { "asset._id": new mongoose.Types.ObjectId(assetId) }
+      : { "asset.url": url };
+
+    const updated = await Category.findOneAndUpdate(
+      { _id: id },
+      { $set: updateSet },
+      {
+        arrayFilters: [assetIdentifier],
+        new: true,
+      }
+    ).lean();
+
+    if (!updated) {
+      return apiResponse({
+        res,
+        status: false,
+        statusCode: StatusCodes.NOT_FOUND,
+        message: "Asset not found or could not be updated",
+      });
+    }
+
+    return apiResponse({
+      res,
+      status: true,
+      statusCode: StatusCodes.OK,
+      message: "Asset updated successfully",
+      data: {
+        ...updated,
+        asset_images: normalizeAssets(updated.asset_images || []),
+      },
+    });
+  } catch (error) {
+    console.error("updateAssetImage error:", error);
+    return apiResponse({
+      res,
+      status: false,
+      statusCode: StatusCodes.INTERNAL_SERVER_ERROR,
+      message: "Failed to update asset",
+    });
+  }
+};
+
 export default {
   createCategory,
   getCategories,
@@ -1094,4 +1961,9 @@ export default {
   toggleCategoryStatus,
   toggleCategoryPremium,
   getCategoryTitles,
+  uploadAssetImages,
+  getCategoryAssets,
+  deleteAssetImage,
+  manageCategoryAssets,
+  updateAssetImage,
 };

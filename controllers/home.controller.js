@@ -258,6 +258,8 @@ export const getHomeData = async (req, res) => {
           prompt: 1,
           section1Order: 1,
           isSection1: 1,
+          android_appVersion: 1,
+          ios_appVersion: 1,
           createdAt: 1,
           updatedAt: 1,
         })
@@ -282,6 +284,8 @@ export const getHomeData = async (req, res) => {
           isSection2: 1,
           userPreferenceOrder: 1,
           isUserPreference: 1,
+          android_appVersion: 1,
+          ios_appVersion: 1,
           createdAt: 1,
           updatedAt: 1,
         })
@@ -306,6 +310,8 @@ export const getHomeData = async (req, res) => {
           asset_images: 1,
           isPremium: 1,
           selectImage: 1,
+          android_appVersion: 1,
+          ios_appVersion: 1,
           createdAt: 1,
           updatedAt: 1,
         })
@@ -330,6 +336,8 @@ export const getHomeData = async (req, res) => {
           asset_images: 1,
           isPremium: 1,
           selectImage: 1,
+          android_appVersion: 1,
+          ios_appVersion: 1,
           createdAt: 1,
           updatedAt: 1,
         })
@@ -354,6 +362,8 @@ export const getHomeData = async (req, res) => {
           asset_images: 1,
           isPremium: 1,
           selectImage: 1,
+          android_appVersion: 1,
+          ios_appVersion: 1,
           createdAt: 1,
           updatedAt: 1,
         })
@@ -378,6 +388,8 @@ export const getHomeData = async (req, res) => {
           isPremium: 1,
           selectImage: 1,
           prompt: 1,
+          android_appVersion: 1,
+          ios_appVersion: 1,
           createdAt: 1,
           updatedAt: 1,
         })
@@ -402,6 +414,8 @@ export const getHomeData = async (req, res) => {
           isPremium: 1,
           selectImage: 1,
           prompt: 1,
+          android_appVersion: 1,
+          ios_appVersion: 1,
           createdAt: 1,
           updatedAt: 1,
         })
@@ -426,6 +440,8 @@ export const getHomeData = async (req, res) => {
           asset_images: 1,
           isPremium: 1,
           selectImage: 1,
+          android_appVersion: 1,
+          ios_appVersion: 1,
           createdAt: 1,
           updatedAt: 1,
         })
@@ -434,20 +450,41 @@ export const getHomeData = async (req, res) => {
         .hint({ status: 1, isSection8: 1, section8Order: 1 }),
     ]);
 
+    // Filter categories by user's appVersion for sections 1, 2, 6, and 7
+    // Logic: If user doesn't have appVersion → show only categories without platform appVersion
+    // If user has appVersion → show only if userVersion >= categoryVersion
+    const user = req.user || null;
+    const filteredSection1Categories = helper.filterCategoriesByAppVersion(
+      user,
+      section1Categories
+    );
+    const filteredSection2Categories = helper.filterCategoriesByAppVersion(
+      user,
+      section2Categories
+    );
+    const filteredSection6Categories = helper.filterCategoriesByAppVersion(
+      user,
+      section6Categories
+    );
+    const filteredSection7Categories = helper.filterCategoriesByAppVersion(
+      user,
+      section7Categories
+    );
+
     // Sort Section 1 categories based on priority categoryId and user click data
-    let sortedSection1Categories = section1Categories;
+    let sortedSection1Categories = filteredSection1Categories;
 
     // Separate priority category (from query) and other categories
     let priorityCategory = null;
     let otherCategories = [];
 
     if (priorityCategoryId) {
-      const priorityIndex = section1Categories.findIndex(
+      const priorityIndex = filteredSection1Categories.findIndex(
         (cat) => cat._id.toString() === priorityCategoryId
       );
       if (priorityIndex !== -1) {
-        priorityCategory = section1Categories[priorityIndex];
-        otherCategories = section1Categories.filter(
+        priorityCategory = filteredSection1Categories[priorityIndex];
+        otherCategories = filteredSection1Categories.filter(
           (cat) => cat._id.toString() !== priorityCategoryId
         );
       } else {
@@ -471,23 +508,35 @@ export const getHomeData = async (req, res) => {
               prompt: 1,
               section1Order: 1,
               isSection1: 1,
+              android_appVersion: 1,
+              ios_appVersion: 1,
               createdAt: 1,
               updatedAt: 1,
             })
             .lean();
           if (fetchedCategory) {
-            priorityCategory = fetchedCategory;
-            otherCategories = section1Categories;
+            // Filter the fetched priority category by appVersion before using it
+            const filteredFetchedCategory = helper.filterCategoriesByAppVersion(
+              user,
+              [fetchedCategory]
+            );
+            if (filteredFetchedCategory.length > 0) {
+              priorityCategory = filteredFetchedCategory[0];
+              otherCategories = filteredSection1Categories;
+            } else {
+              // Priority category doesn't pass appVersion filter, don't include it
+              otherCategories = filteredSection1Categories;
+            }
           } else {
-            otherCategories = section1Categories;
+            otherCategories = filteredSection1Categories;
           }
         } catch (error) {
           console.error("Error fetching priority category:", error);
-          otherCategories = section1Categories;
+          otherCategories = filteredSection1Categories;
         }
       }
     } else {
-      otherCategories = section1Categories;
+      otherCategories = filteredSection1Categories;
     }
 
     // Sort other categories based on user click data
@@ -554,19 +603,19 @@ export const getHomeData = async (req, res) => {
     }
 
     // Sort Section 2 categories based on priority categoryId and user preferences
-    let sortedSection2Categories = section2Categories;
+    let sortedSection2Categories = filteredSection2Categories;
 
     // Separate priority category (from query) and other categories for Section 2
     let priorityCategory2 = null;
     let otherCategories2 = [];
 
     if (priorityCategoryId) {
-      const priorityIndex2 = section2Categories.findIndex(
+      const priorityIndex2 = filteredSection2Categories.findIndex(
         (cat) => cat._id.toString() === priorityCategoryId
       );
       if (priorityIndex2 !== -1) {
-        priorityCategory2 = section2Categories[priorityIndex2];
-        otherCategories2 = section2Categories.filter(
+        priorityCategory2 = filteredSection2Categories[priorityIndex2];
+        otherCategories2 = filteredSection2Categories.filter(
           (cat) => cat._id.toString() !== priorityCategoryId
         );
       } else {
@@ -592,26 +641,38 @@ export const getHomeData = async (req, res) => {
               isSection2: 1,
               userPreferenceOrder: 1,
               isUserPreference: 1,
+              android_appVersion: 1,
+              ios_appVersion: 1,
               createdAt: 1,
               updatedAt: 1,
             })
             .lean();
           if (fetchedCategory2) {
-            priorityCategory2 = fetchedCategory2;
-            otherCategories2 = section2Categories;
+            // Filter the fetched priority category by appVersion before using it
+            const filteredFetchedCategory2 = helper.filterCategoriesByAppVersion(
+              user,
+              [fetchedCategory2]
+            );
+            if (filteredFetchedCategory2.length > 0) {
+              priorityCategory2 = filteredFetchedCategory2[0];
+              otherCategories2 = filteredSection2Categories;
+            } else {
+              // Priority category doesn't pass appVersion filter, don't include it
+              otherCategories2 = filteredSection2Categories;
+            }
           } else {
-            otherCategories2 = section2Categories;
+            otherCategories2 = filteredSection2Categories;
           }
         } catch (error) {
           console.error(
             "Error fetching priority category for Section 2:",
             error
           );
-          otherCategories2 = section2Categories;
+          otherCategories2 = filteredSection2Categories;
         }
       }
     } else {
-      otherCategories2 = section2Categories;
+      otherCategories2 = filteredSection2Categories;
     }
 
     // Sort Section 2 categories with priority-based ordering:
@@ -672,6 +733,44 @@ export const getHomeData = async (req, res) => {
       sortedSection2Categories = otherCategories2;
     }
 
+    // Get user app version and provider for filtering
+    const userAppVersion = req.user?.appVersion;
+    const userProvider = req.user?.provider;
+
+    console.log('=== HOME API VERSION FILTERING DEBUG ===');
+    console.log('User app version:', userAppVersion);
+    console.log('User provider:', userProvider);
+    console.log('Section3 subcategories before filtering:', section3Subcategories.length);
+    console.log('Section4 subcategories before filtering:', section4Subcategories.length);
+    console.log('Section5 subcategories before filtering:', section5Subcategories.length);
+    console.log('Section8 subcategories before filtering:', section8Subcategories.length);
+
+    // Filter subcategories by app version if user is logged in
+    const filteredSection3Subcategories = helper.filterSubcategoriesByVersion(section3Subcategories, userAppVersion, userProvider);
+    const filteredSection4Subcategories = helper.filterSubcategoriesByVersion(section4Subcategories, userAppVersion, userProvider);
+    const filteredSection5Subcategories = helper.filterSubcategoriesByVersion(section5Subcategories, userAppVersion, userProvider);
+    const filteredSection8Subcategories = helper.filterSubcategoriesByVersion(section8Subcategories, userAppVersion, userProvider);
+
+    console.log('Section3 subcategories after filtering:', filteredSection3Subcategories.length);
+    console.log('Section4 subcategories after filtering:', filteredSection4Subcategories.length);
+    console.log('Section5 subcategories after filtering:', filteredSection5Subcategories.length);
+    console.log('Section8 subcategories after filtering:', filteredSection8Subcategories.length);
+
+    // Debug: Check if the problematic subcategory is being filtered
+    const problemSubcategoryId = '694e5c79aa7e980e3dcfad87';
+    const foundInSection3 = filteredSection3Subcategories.find(sub => sub._id.toString() === problemSubcategoryId);
+    const foundInSection4 = filteredSection4Subcategories.find(sub => sub._id.toString() === problemSubcategoryId);
+    const foundInSection5 = filteredSection5Subcategories.find(sub => sub._id.toString() === problemSubcategoryId);
+    const foundInSection8 = filteredSection8Subcategories.find(sub => sub._id.toString() === problemSubcategoryId);
+    
+    console.log('Problem subcategory found in sections:', {
+      section3: !!foundInSection3,
+      section4: !!foundInSection4,
+      section5: !!foundInSection5,
+      section8: !!foundInSection8
+    });
+    console.log('=== END HOME API DEBUG ===');
+
     // Build response with 8 sections (all with title structure)
     // For section 8, if no subcategories have isSection8: true, return empty array
     const responseData = {
@@ -685,27 +784,27 @@ export const getHomeData = async (req, res) => {
       },
       section3: {
         title: "Ai Face Swap",
-        subcategories: section3Subcategories, // Subcategory Grid
+        subcategories: filteredSection3Subcategories, // Subcategory Grid (filtered by app version)
       },
       section4: {
         title: "image",
-        subcategories: section4Subcategories, // Subcategories
+        subcategories: filteredSection4Subcategories, // Subcategories (filtered by app version)
       },
       section5: {
         title: "image",
-        subcategories: section5Subcategories, // Subcategories
+        subcategories: filteredSection5Subcategories, // Subcategories (filtered by app version)
       },
       section6: {
         title: homeSettings.section6Title || "Enhance Tools",
-        categories: section6Categories, // Enhance Tools
+        categories: filteredSection6Categories, // Enhance Tools
       },
       section7: {
         title: homeSettings.section7Title || "AI Tools",
-        categories: section7Categories, // AI Tools
+        categories: filteredSection7Categories, // AI Tools
       },
       section8: {
         title: "image",
-        subcategories: section8Subcategories || [], // Subcategories - empty array if none selected
+        subcategories: filteredSection8Subcategories || [], // Subcategories - empty array if none selected (filtered by app version)
       },
     };
 

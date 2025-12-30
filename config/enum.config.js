@@ -4,10 +4,12 @@ const nodeEnvEnums = {
 };
 
 const authProviderEnum = {
-  GOOGLE: "google",
-  APPLE: "apple",
-  EMAIL: "email",
-  MOBILE: "mobile",
+  // GOOGLE: "google",
+  // APPLE: "apple",
+  // EMAIL: "email",
+  // MOBILE: "mobile",
+  ANDROID: "android",
+  IOS: "ios",
 };
 
 const userRoleEnum = {

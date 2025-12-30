@@ -71,6 +71,11 @@ const createCategoryValidation = {
         "string.base": "Prompt must be a string",
       }),
 
+      // Country and App Version fields
+      country: Joi.string().allow(null, "").optional().trim(),
+      android_appVersion: Joi.string().allow(null, "").optional().trim(),
+      ios_appVersion: Joi.string().allow(null, "").optional().trim(),
+
       // Allow file field names in body (they're handled separately via multer in req.files)
       // These are optional and ignored if present as text fields
       img_sqr: Joi.any().optional(),
@@ -119,6 +124,11 @@ const updateCategoryValidation = {
         "number.integer": "User preference order must be an integer",
         "number.min": "User preference order must be 0 or greater",
       }),
+
+      // Country and App Version fields
+      country: Joi.string().allow(null, "null", "").optional().trim(),
+      android_appVersion: Joi.string().allow(null, "null", "").optional().trim(),
+      ios_appVersion: Joi.string().allow(null, "null", "").optional().trim(),
 
       // Allow file field names in body (they're handled separately via multer in req.files)
       // These are optional and can be set to null to remove/clear media
@@ -242,10 +252,168 @@ const setUserPreferenceValidation = {
     }),
 };
 
+// Asset management validation
+// Supports: file uploads (asset_images), addUrl, removeUrl, removeUrls
+const manageCategoryAssetValidation = {
+  params: Joi.object({
+    id: Joi.string()
+      .regex(/^[0-9a-fA-F]{24}$/)
+      .required()
+      .messages({
+        "string.pattern.base": "Invalid category ID format",
+        "any.required": "Category ID is required",
+      }),
+  }),
+  body: Joi.object({
+    addUrl: Joi.string().uri().optional().messages({
+      "string.uri": "addUrl must be a valid URL",
+    }),
+    removeUrl: Joi.string().optional(), // Can be URL or asset ID
+    removeUrls: Joi.array().items(Joi.string()).optional().messages({
+      "array.base": "removeUrls must be an array",
+    }),
+    isPremium: Joi.alternatives()
+      .try(
+        Joi.boolean(),
+        Joi.string().valid(
+          "true",
+          "false",
+          "1",
+          "0",
+          "True",
+          "False",
+          "TRUE",
+          "FALSE"
+        )
+      )
+      .optional(),
+    imageCount: Joi.alternatives()
+      .try(
+        Joi.number().integer().min(1),
+        Joi.string()
+          .pattern(/^\d+$/)
+          .custom((value) => {
+            const num = Number(value);
+            if (isNaN(num) || num < 1) {
+              throw new Error("imageCount must be a number >= 1");
+            }
+            return num;
+          })
+      )
+      .optional(),
+    imagecount: Joi.alternatives()
+      .try(
+        Joi.number().integer().min(1),
+        Joi.string()
+          .pattern(/^\d+$/)
+          .custom((value) => {
+            const num = Number(value);
+            if (isNaN(num) || num < 1) {
+              throw new Error("imagecount must be a number >= 1");
+            }
+            return num;
+          })
+      )
+      .optional(),
+    prompt: Joi.string().trim().optional(),
+  }).unknown(true),
+};
+
+// Update individual asset properties
+const updateCategoryAssetValidation = {
+  params: Joi.object({
+    id: Joi.string()
+      .regex(/^[0-9a-fA-F]{24}$/)
+      .required()
+      .messages({
+        "string.pattern.base": "Invalid category ID format",
+        "any.required": "Category ID is required",
+      }),
+  }),
+  body: Joi.object({
+    assetId: Joi.string().optional().messages({
+      "string.base": "assetId must be a string",
+    }),
+    url: Joi.string().optional().messages({
+      "string.base": "url must be a string",
+    }),
+    isPremium: Joi.alternatives()
+      .try(
+        Joi.boolean(),
+        Joi.string().valid(
+          "true",
+          "false",
+          "1",
+          "0",
+          "True",
+          "False",
+          "TRUE",
+          "FALSE"
+        )
+      )
+      .optional(),
+    imageCount: Joi.alternatives()
+      .try(
+        Joi.number().integer().min(1),
+        Joi.string()
+          .pattern(/^\d+$/)
+          .custom((value) => {
+            const num = Number(value);
+            if (isNaN(num) || num < 1) {
+              throw new Error("imageCount must be a number >= 1");
+            }
+            return num;
+          })
+      )
+      .optional(),
+    imagecount: Joi.alternatives()
+      .try(
+        Joi.number().integer().min(1),
+        Joi.string()
+          .pattern(/^\d+$/)
+          .custom((value) => {
+            const num = Number(value);
+            if (isNaN(num) || num < 1) {
+              throw new Error("imagecount must be a number >= 1");
+            }
+            return num;
+          })
+      )
+      .optional(),
+    prompt: Joi.string().trim().optional(),
+  })
+    .custom((value, helpers) => {
+      // Require either assetId or url
+      if (!value.assetId && !value.url) {
+        return helpers.error("object.missing", {
+          message: "Either assetId or url is required to identify the asset",
+        });
+      }
+      // Require at least one of isPremium, imageCount, or prompt
+      if (
+        value.isPremium === undefined &&
+        value.imageCount === undefined &&
+        value.imagecount === undefined &&
+        value.prompt === undefined
+      ) {
+        return helpers.error("object.missing", {
+          message: "At least one of isPremium, imageCount, or prompt must be provided",
+        });
+      }
+      return value;
+    })
+    .messages({
+      "object.missing":
+        "Either assetId or url is required, and at least one of isPremium, imageCount, or prompt must be provided",
+    }),
+};
+
 export default {
   createCategoryValidation,
   updateCategoryValidation,
   reorderCategoriesValidation,
   deleteCategoryValidation,
   setUserPreferenceValidation,
+  manageCategoryAssetValidation,
+  updateCategoryAssetValidation,
 };

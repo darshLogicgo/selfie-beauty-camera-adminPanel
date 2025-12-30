@@ -209,6 +209,14 @@ export const createSubcategory = async (req, res) => {
         finalPayload.isTrending !== undefined
           ? Boolean(finalPayload.isTrending)
           : false,
+      android_appVersion:
+        finalPayload.android_appVersion !== undefined
+          ? finalPayload.android_appVersion
+          : null,
+      ios_appVersion:
+        finalPayload.ios_appVersion !== undefined
+          ? finalPayload.ios_appVersion
+          : null,
     };
 
     // Handle asset_images - merge uploaded files and body assets
@@ -291,7 +299,9 @@ export const createSubcategory = async (req, res) => {
     ) {
       // Only calculate if isTrending is true, otherwise set to 0
       if (subcategoryData.isTrending) {
-        subcategoryData.trendingOrder = await calculateNextOrder("trendingOrder");
+        subcategoryData.trendingOrder = await calculateNextOrder(
+          "trendingOrder"
+        );
       } else {
         subcategoryData.trendingOrder = 0;
       }
@@ -484,11 +494,18 @@ export const getOtherSubcategories = async (req, res) => {
           video_rec: 1,
           status: 1,
           order: 1,
+          android_appVersion: 1,
+          ios_appVersion: 1,
         },
       },
     ];
 
     const items = await Subcategory.aggregate(pipeline);
+
+    // Filter by app version if user is logged in
+    const userAppVersion = req.user?.appVersion;
+    const userProvider = req.user?.provider;
+    const filteredItems = commonHelper.filterSubcategoriesByVersion(items, userAppVersion, userProvider);
 
     // Return all subcategories except the one user clicked (only with required fields)
     return apiResponse({
@@ -496,7 +513,7 @@ export const getOtherSubcategories = async (req, res) => {
       status: true,
       statusCode: StatusCodes.OK,
       message: "Other subcategories fetched successfully",
-      data: items,
+      data: filteredItems,
     });
   } catch (error) {
     console.error("getOtherSubcategories error:", error);
@@ -627,6 +644,12 @@ export const updateSubcategory = async (req, res) => {
     }
     if (finalPayload.trendingOrder !== undefined) {
       finalPayload.trendingOrder = Number(finalPayload.trendingOrder);
+    }
+    if (finalPayload.android_appVersion !== undefined) {
+      finalPayload.android_appVersion = finalPayload.android_appVersion;
+    }
+    if (finalPayload.ios_appVersion !== undefined) {
+      finalPayload.ios_appVersion = finalPayload.ios_appVersion;
     }
 
     // Build update object
@@ -1523,17 +1546,22 @@ export const getAllSubcategoryTitles = async (req, res) => {
           createdAt: 1,
         },
       },
-      { $project: { _id: 1, subcategoryTitle: 1 } },
+      { $project: { _id: 1, subcategoryTitle: 1, android_appVersion: 1, ios_appVersion: 1 } },
     ];
 
     const subcategories = await Subcategory.aggregate(pipeline);
+
+    // Filter by app version if user is logged in
+    const userAppVersion = req.user?.appVersion;
+    const userProvider = req.user?.provider;
+    const filteredSubcategories = commonHelper.filterSubcategoriesByVersion(subcategories, userAppVersion, userProvider);
 
     return apiResponse({
       res,
       status: true,
       statusCode: StatusCodes.OK,
       message: "Subcategory titles fetched successfully",
-      data: subcategories,
+      data: filteredSubcategories,
     });
   } catch (error) {
     console.error("getAllSubcategoryTitles error:", error);
@@ -1565,7 +1593,7 @@ export const getSubcategoryAssets = async (req, res) => {
       _id: id,
       status: true,
     })
-      .select({ _id: 1, subcategoryTitle: 1, asset_images: 1, prompt: 1 })
+      .select({ _id: 1, subcategoryTitle: 1, asset_images: 1, prompt: 1, android_appVersion: 1, ios_appVersion: 1 })
       .lean();
 
     if (!subcategory) {
@@ -1575,6 +1603,33 @@ export const getSubcategoryAssets = async (req, res) => {
         statusCode: StatusCodes.NOT_FOUND,
         message: "Subcategory not found or inactive",
       });
+    }
+
+    // Check app version compatibility based on user provider
+    const userAppVersion = req.user?.appVersion;
+    const userProvider = req.user?.provider;
+    
+    if (userAppVersion && userProvider) {
+      let subcategoryVersion = null;
+      
+      // Get the appropriate version based on user provider
+      if (userProvider === "android") {
+        subcategoryVersion = subcategory.android_appVersion;
+      } else if (userProvider === "ios") {
+        subcategoryVersion = subcategory.ios_appVersion;
+      }
+      
+      if (subcategoryVersion) {
+        const isCompatible = commonHelper.compareAppVersionsSubCategory(userAppVersion, subcategoryVersion);
+        if (!isCompatible) {
+          return apiResponse({
+            res,
+            status: false,
+            statusCode: StatusCodes.FORBIDDEN,
+            message: "Subcategory not compatible with your app version. Please update your app.",
+          });
+        }
+      }
     }
 
     const allAssetImages = normalizeAssets(subcategory.asset_images || []);
