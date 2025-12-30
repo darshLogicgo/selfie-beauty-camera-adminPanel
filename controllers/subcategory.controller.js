@@ -70,6 +70,11 @@ const normalizeSubcategory = (subcategory) => {
         ? subcatObj.imageCount
         : 1,
     isPremium: subcatObj.isPremium !== undefined ? subcatObj.isPremium : false,
+    country: subcatObj.country !== undefined ? subcatObj.country : null,
+    android_appVersion:
+      subcatObj.android_appVersion !== undefined ? subcatObj.android_appVersion : null,
+    ios_appVersion:
+      subcatObj.ios_appVersion !== undefined ? subcatObj.ios_appVersion : null,
   };
 };
 
@@ -209,6 +214,8 @@ export const createSubcategory = async (req, res) => {
         finalPayload.isTrending !== undefined
           ? Boolean(finalPayload.isTrending)
           : false,
+      country:
+        finalPayload.country !== undefined ? finalPayload.country : null,
       android_appVersion:
         finalPayload.android_appVersion !== undefined
           ? finalPayload.android_appVersion
@@ -644,6 +651,9 @@ export const updateSubcategory = async (req, res) => {
     }
     if (finalPayload.trendingOrder !== undefined) {
       finalPayload.trendingOrder = Number(finalPayload.trendingOrder);
+    }
+    if (finalPayload.country !== undefined) {
+      finalPayload.country = finalPayload.country;
     }
     if (finalPayload.android_appVersion !== undefined) {
       finalPayload.android_appVersion = finalPayload.android_appVersion;

@@ -415,6 +415,9 @@ const getCategories = async (req, res) => {
           ? category.imageCount
           : 1,
       prompt: category.prompt !== undefined ? category.prompt : "",
+      country: category.country !== undefined ? category.country : "",
+      android_appVersion: category.android_appVersion !== undefined ? category.android_appVersion : "",
+      ios_appVersion: category.ios_appVersion !== undefined ? category.ios_appVersion : "",
     }));
 
     return apiResponse({
@@ -517,6 +520,9 @@ const getCategoryById = async (req, res) => {
           ? category.imageCount
           : 1,
       prompt: category.prompt !== undefined ? category.prompt : "",
+      country: category.country !== undefined ? category.country : "",
+      android_appVersion: category.android_appVersion !== undefined ? category.android_appVersion : "",
+      ios_appVersion: category.ios_appVersion !== undefined ? category.ios_appVersion : "",
     };
 
     return apiResponse({
